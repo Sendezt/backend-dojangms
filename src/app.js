@@ -10,6 +10,15 @@ const authRouter = require("./routes/authRoutes");
 app.use(cors());
 app.use(express.json());
 
+// Localhost
+app.get("/", (req, res) => {
+  res.json({
+    status: true,
+    message: "Server is running",
+    endpoint: ["/api/auth", "/api/user"],
+  });
+});
+
 // Routes
 app.use("/api/user", userRouter);
 app.use("/api/auth", authRouter);

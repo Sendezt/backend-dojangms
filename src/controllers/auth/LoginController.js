@@ -43,7 +43,7 @@ exports.Login = async (req, res) => {
     const isMatch = await bycypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({
-        message: "Email atau password salah",
+        message: "Password salah",
       });
     }
 
