@@ -1,11 +1,10 @@
 const db = require("../../config/database");
-const bycypt = require("bcrypt");
+const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-exports.Login = async (req, res) => {
+exports.login = async (req, res) => {
   const { email, password } = req.body;
 
-  // Validasi input
   if (!email || !password) {
     return res.status(400).json({
       message: "Email dan password wajib diisi",
@@ -15,68 +14,66 @@ exports.Login = async (req, res) => {
   const conn = await db.getConnection();
 
   try {
-    // Ambil user berdasarkan email
+    // Cek user
     const [[user]] = await conn.query(
       `
-        SELECT id, name, email, password, status
-        FROM users
-        WHERE email = ?
-        `,
+      SELECT id, name, email, password, status
+      FROM users
+      WHERE email = ?
+      `,
       [email]
     );
 
-    // Jika user tidak ada
+    // ❌ Email atau password salah (disamakan)
     if (!user) {
       return res.status(401).json({
-        message: "Email salah",
+        message: "Email atau password salah",
       });
     }
 
-    // Jika user tidak aktif
     if (user.status !== "active") {
       return res.status(403).json({
         message: "Akun tidak aktif",
       });
     }
 
-    // Cek Password
-    const isMatch = await bycypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({
-        message: "Password salah",
+        message: "Email atau password salah",
       });
     }
 
-    // Ambil roles user
+    // Ambil roles
     const [roles] = await conn.query(
       `
-        SELECT r.name
-        FROM user_roles ur
-        JOIN roles r ON r.id = ur.role_id
-        WHERE ur.user_id = ?
-        `,
+      SELECT r.name
+      FROM user_roles ur
+      JOIN roles r ON r.id = ur.role_id
+      WHERE ur.user_id = ?
+      `,
       [user.id]
     );
 
     // Ambil sabuk aktif
     const [[belt]] = await conn.query(
       `
-        SELECT b.name, b.dan_level, ub.achieved_at
-        FROM user_belts ub
-        JOIN belts b ON b.id = ub.belt_id
-        WHERE ub.user_id = ? AND ub.is_current = true
-        `,
+      SELECT b.name, b.dan_level, ub.achieved_at
+      FROM user_belts ub
+      JOIN belts b ON b.id = ub.belt_id
+      WHERE ub.user_id = ? AND ub.is_current = true
+      `,
       [user.id]
     );
 
-    // JWT
+    // Generate JWT
     const token = jwt.sign(
       {
         id: user.id,
         email: user.email,
         roles: roles.map((r) => r.name),
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || "rahasia_jwt",
       { expiresIn: "1d" }
     );
 
@@ -89,7 +86,7 @@ exports.Login = async (req, res) => {
           name: user.name,
           email: user.email,
           roles: roles.map((r) => r.name),
-          current_belt: belt,
+          current_belt: belt || null,
         },
       },
     });
