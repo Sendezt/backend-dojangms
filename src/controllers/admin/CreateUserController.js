@@ -1,12 +1,12 @@
 const db = require("../../config/database");
 const bcrypt = require("bcrypt");
 
-exports.createUser = async (req, res) => {
-  const { name, email, password, phone } = req.body;
+exports.createdUserByAdmin = async (req, res) => {
+  const { name, email, password, phone, roles, belt_id, status } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({
-      message: "Nama, email, dan password wajib diisi",
+      message: "Name, email dan password wajib diisi",
     });
   }
 
@@ -15,11 +15,10 @@ exports.createUser = async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // Cek email sudah terdaftar
-    const [existing] = await conn.query(
-      "SELECT id FROM users WHERE email = ?",
-      [email]
-    );
+    // cek email unik,
+    const [existing] = await conn.query("SELECT id FROM users WHERE email=?", [
+      email,
+    ]);
 
     if (existing.length > 0) {
       await conn.rollback();
@@ -28,49 +27,78 @@ exports.createUser = async (req, res) => {
       });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // hash passsword
+    const hashedpassword = await bcrypt.hash(password, 12);
 
-    // Insert ke users
+    // insert users
     const [userResult] = await conn.query(
-      `INSERT INTO users (name, email, password, phone, status) VALUES (?,?,?,?,'active')`,
-      [name, email, hashedPassword, phone || null]
+      `
+            INSERT INTO users (name, email, password, phone, status)
+            VALUES (?,?,?,?,?)
+            `,
+      [
+        name,
+        email,
+        hashedpassword,
+        phone || null,
+        status === "inactive" ? "inactive" : "active",
+      ]
     );
 
     const userId = userResult.insertId;
 
-    // Ambil role murid
-    const [[role]] = await conn.query(
-      `SELECT id FROM roles WHERE name = 'murid'`
-    );
+    // insert role
+    const roleList =
+      Array.isArray(roles) && roles.length > 0 ? roles : ["murid"];
 
-    // insert ke user_roles
-    await conn.query(`INSERT INTO user_roles (user_id, role_id) VALUES (?,?)`, [
-      userId,
-      role.id,
-    ]);
+    for (const roleName of roleList) {
+      const [[role]] = await conn.query(`SELECT id FROM roles WHERE name = ?`, [
+        roleName,
+      ]);
 
-    // ambil sabuk putih , order level = 1
-    const [[belt]] = await conn.query(
-      `SELECT id FROM belts WHERE order_level = 1`
-    );
+      if (!role) {
+        await conn.rollback();
+        return res.status(400).json({
+          message: `Role '${roleName}' tidak valid`,
+        });
+      }
 
-    // Insert ke user_belts
+      await conn.query(
+        `INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)`,
+        [userId, role.id]
+      );
+    }
+
+    // Inser belt
+    let selectedBeltId = belt_id;
+
+    // Jika admin tidak menentukan belt -> default putih
+    if (!selectedBeltId) {
+      const [[belt]] = await conn.query(
+        `SELECT id FROM belts ORDER BY order_level ASC LIMIT 1`
+      );
+      selectedBeltId = belt.id;
+    }
+
     await conn.query(
-      `INSERT INTO user_belts (user_id, belt_id, is_current, achieved_at) VALUES (?,?,true,CURDATE())`,
-      [userId, belt.id]
+      `
+            INSERT INTO user_belts (user_id, belt_id, is_current, achieved_at)
+            VALUES (?, ?, true, CURDATE())
+            `,
+      [userId, selectedBeltId]
     );
 
     await conn.commit();
 
     res.status(201).json({
-      message: "User berhasil dibuat",
+      message: "User berhasil dibuat oleh admin",
       data: {
         id: userId,
         name,
         email,
-        role: "murid",
-        belt: "putih",
+        roles: roleList,
+        belt_id: selectedBeltId,
+        status: status || "active",
       },
     });
   } catch (error) {
