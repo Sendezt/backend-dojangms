@@ -1,7 +1,7 @@
 const db = require("../../config/database");
 const bcrypt = require("bcrypt");
 
-exports.createdUserByAdmin = async (req, res) => {
+exports.createUser = async (req, res) => {
   const { name, email, password, phone, roles, belt_id, status } = req.body;
 
   if (!name || !email || !password) {
@@ -42,7 +42,7 @@ exports.createdUserByAdmin = async (req, res) => {
         hashedpassword,
         phone || null,
         status === "inactive" ? "inactive" : "active",
-      ]
+      ],
     );
 
     const userId = userResult.insertId;
@@ -65,7 +65,7 @@ exports.createdUserByAdmin = async (req, res) => {
 
       await conn.query(
         `INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)`,
-        [userId, role.id]
+        [userId, role.id],
       );
     }
 
@@ -75,7 +75,7 @@ exports.createdUserByAdmin = async (req, res) => {
     // Jika admin tidak menentukan belt -> default putih
     if (!selectedBeltId) {
       const [[belt]] = await conn.query(
-        `SELECT id FROM belts ORDER BY order_level ASC LIMIT 1`
+        `SELECT id FROM belts ORDER BY order_level ASC LIMIT 1`,
       );
       selectedBeltId = belt.id;
     }
@@ -85,7 +85,7 @@ exports.createdUserByAdmin = async (req, res) => {
             INSERT INTO user_belts (user_id, belt_id, is_current, achieved_at)
             VALUES (?, ?, true, CURDATE())
             `,
-      [userId, selectedBeltId]
+      [userId, selectedBeltId],
     );
 
     await conn.commit();
