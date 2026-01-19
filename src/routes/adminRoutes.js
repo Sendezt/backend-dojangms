@@ -29,9 +29,16 @@ const {
 const {
   updateUserRoles,
 } = require("../controllers/admin/UpdateRoleController");
+const { getAllRoles } = require("../controllers/admin/GetAllRolesController");
+
+// belt
+const { getBeltById } = require("../controllers/admin/GetBeltByIdController");
+const { createBelt } = require("../controllers/admin/CreateBeltController");
+const { updateBelt } = require("../controllers/admin/UpdateBeltController");
+const { deleteBelt } = require("../controllers/admin/DeleterBeltController");
 
 // user route
-router.get("/getall/user", getAllUsers);
+router.get("/get/user", getAllUsers);
 router.get("/get/user/:id", getUserById);
 router.post("/create/user", createUser);
 router.patch("/update/user/:id", updateUser);
@@ -45,6 +52,13 @@ router.patch("/update/championship/:id", updateChampionship);
 router.delete("/delete/championship/:id", deleteChampionship);
 
 // role route
+router.get("/get/roles", getAllRoles);
 router.patch("/update/roles/:id", updateUserRoles);
+
+// belt route
+router.get("/get/belts/:id", getBeltById);
+router.post("/create/belts", createBelt);
+router.patch("/update/belts/:id", updateBelt);
+router.delete("/delete/belts/:id", deleteBelt);
 
 module.exports = router;
