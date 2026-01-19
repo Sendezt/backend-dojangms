@@ -25,6 +25,11 @@ const {
   deleteChampionship,
 } = require("../controllers/admin/DeleteChampioshipController");
 
+// role
+const {
+  updateUserRoles,
+} = require("../controllers/admin/UpdateRoleController");
+
 // user route
 router.get("/getall/user", getAllUsers);
 router.get("/get/user/:id", getUserById);
@@ -38,5 +43,8 @@ router.get("/get/championship/:id", getChampionshipById);
 router.post("/create/championship", createChampionship);
 router.patch("/update/championship/:id", updateChampionship);
 router.delete("/delete/championship/:id", deleteChampionship);
+
+// role route
+router.patch("/update/roles/:id", updateUserRoles);
 
 module.exports = router;
