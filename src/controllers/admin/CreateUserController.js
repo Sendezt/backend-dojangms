@@ -2,23 +2,43 @@ const db = require("../../config/database");
 const bcrypt = require("bcrypt");
 
 exports.createUser = async (req, res) => {
-  const { name, email, password, phone, roles, belt_id, status } = req.body;
+  const {
+    name,
+    email,
+    password,
+    phone,
+    tanggal_lahir,
+    roles,
+    belt_id,
+    status,
+  } = req.body;
 
-  if (!name || !email || !password) {
+  // ===== VALIDASI =====
+  if (!name || !email || !password || !tanggal_lahir) {
     return res.status(400).json({
-      message: "Name, email dan password wajib diisi",
+      message: "Name, email, password, dan tanggal lahir wajib diisi",
     });
   }
+
+  const parsedDate = new Date(tanggal_lahir);
+  if (isNaN(parsedDate.getTime())) {
+    return res.status(400).json({
+      message: "Format tanggal lahir tidak valid",
+    });
+  }
+
+  const tahun_lahir = parsedDate.getFullYear();
 
   const conn = await db.getConnection();
 
   try {
     await conn.beginTransaction();
 
-    // cek email unik,
-    const [existing] = await conn.query("SELECT id FROM users WHERE email=?", [
-      email,
-    ]);
+    // ===== CEK EMAIL =====
+    const [existing] = await conn.query(
+      "SELECT id FROM users WHERE email = ?",
+      [email],
+    );
 
     if (existing.length > 0) {
       await conn.rollback();
@@ -27,32 +47,35 @@ exports.createUser = async (req, res) => {
       });
     }
 
-    // hash passsword
-    const hashedpassword = await bcrypt.hash(password, 12);
+    // ===== HASH PASSWORD =====
+    const hashedPassword = await bcrypt.hash(password, 12);
 
-    // insert users
+    // ===== INSERT USER =====
     const [userResult] = await conn.query(
       `
-            INSERT INTO users (name, email, password, phone, status)
-            VALUES (?,?,?,?,?)
-            `,
+      INSERT INTO users 
+      (name, email, password, phone, tanggal_lahir, tahun_lahir, status)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      `,
       [
         name,
         email,
-        hashedpassword,
+        hashedPassword,
         phone || null,
+        tanggal_lahir,
+        tahun_lahir,
         status === "inactive" ? "inactive" : "active",
       ],
     );
 
     const userId = userResult.insertId;
 
-    // insert role
+    // ===== ROLE =====
     const roleList =
       Array.isArray(roles) && roles.length > 0 ? roles : ["murid"];
 
     for (const roleName of roleList) {
-      const [[role]] = await conn.query(`SELECT id FROM roles WHERE name = ?`, [
+      const [[role]] = await conn.query("SELECT id FROM roles WHERE name = ?", [
         roleName,
       ]);
 
@@ -64,27 +87,42 @@ exports.createUser = async (req, res) => {
       }
 
       await conn.query(
-        `INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)`,
+        "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)",
         [userId, role.id],
       );
     }
 
-    // Inser belt
+    // ===== BELT =====
     let selectedBeltId = belt_id;
 
-    // Jika admin tidak menentukan belt -> default putih
-    if (!selectedBeltId) {
+    if (selectedBeltId) {
+      const [[belt]] = await conn.query("SELECT id FROM belts WHERE id = ?", [
+        selectedBeltId,
+      ]);
+
+      if (!belt) {
+        await conn.rollback();
+        return res.status(400).json({
+          message: "Belt tidak valid",
+        });
+      }
+    } else {
       const [[belt]] = await conn.query(
-        `SELECT id FROM belts ORDER BY order_level ASC LIMIT 1`,
+        "SELECT id FROM belts ORDER BY order_level ASC LIMIT 1",
       );
+
+      if (!belt) {
+        throw new Error("Data belt tidak ditemukan");
+      }
+
       selectedBeltId = belt.id;
     }
 
     await conn.query(
       `
-            INSERT INTO user_belts (user_id, belt_id, is_current, achieved_at)
-            VALUES (?, ?, true, CURDATE())
-            `,
+      INSERT INTO user_belts (user_id, belt_id, is_current, achieved_at)
+      VALUES (?, ?, true, CURDATE())
+      `,
       [userId, selectedBeltId],
     );
 
@@ -96,9 +134,11 @@ exports.createUser = async (req, res) => {
         id: userId,
         name,
         email,
+        tanggal_lahir,
+        tahun_lahir,
         roles: roleList,
         belt_id: selectedBeltId,
-        status: status || "active",
+        status: status === "inactive" ? "inactive" : "active",
       },
     });
   } catch (error) {
