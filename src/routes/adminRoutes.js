@@ -37,6 +37,11 @@ const { createBelt } = require("../controllers/admin/CreateBeltController");
 const { updateBelt } = require("../controllers/admin/UpdateBeltController");
 const { deleteBelt } = require("../controllers/admin/DeleterBeltController");
 
+// championship participant
+const {
+  addParticipant,
+} = require("../controllers/admin/AddParticipantChampionshipController");
+
 // user route
 router.get("/get/user", getAllUsers);
 router.get("/get/user/:id", getUserById);
@@ -60,5 +65,8 @@ router.get("/get/belts/:id", getBeltById);
 router.post("/create/belts", createBelt);
 router.patch("/update/belts/:id", updateBelt);
 router.delete("/delete/belts/:id", deleteBelt);
+
+// championship participant route
+router.post("/create/championship/participant/:id", addParticipant);
 
 module.exports = router;
