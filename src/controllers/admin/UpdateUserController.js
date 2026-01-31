@@ -4,7 +4,7 @@ const bcrypt = require("bcrypt");
 exports.updateUser = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, email, phone, password, status } = req.body;
+    const { name, email, phone, password, status, tanggal_lahir } = req.body;
 
     if (!id) {
       return res.status(400).json({
@@ -18,14 +18,15 @@ exports.updateUser = async (req, res) => {
       email === undefined &&
       phone === undefined &&
       password === undefined &&
-      status === undefined
+      status === undefined &&
+      tanggal_lahir === undefined
     ) {
       return res.status(400).json({
         message: "Minimal satu field harus diupdate",
       });
     }
 
-    // cek user ada atau tidak
+    // cek user
     const [rows] = await db.execute("SELECT * FROM users WHERE id = ?", [id]);
 
     if (rows.length === 0) {
@@ -43,7 +44,7 @@ exports.updateUser = async (req, res) => {
       });
     }
 
-    // validasi email unik (jika diubah)
+    // validasi email unik
     if (email !== undefined && email !== current.email) {
       const [checkEmail] = await db.execute(
         "SELECT id FROM users WHERE email = ? AND id != ?",
@@ -57,7 +58,24 @@ exports.updateUser = async (req, res) => {
       }
     }
 
-    // hash password jika dikirim
+    // validasi tanggal lahir
+    let finalTanggalLahir = current.tanggal_lahir;
+    let finalTahunLahir = current.tahun_lahir;
+
+    if (tanggal_lahir !== undefined) {
+      const parsedDate = new Date(tanggal_lahir);
+
+      if (isNaN(parsedDate.getTime())) {
+        return res.status(400).json({
+          message: "Format tanggal lahir tidak valid",
+        });
+      }
+
+      finalTanggalLahir = tanggal_lahir;
+      finalTahunLahir = parsedDate.getFullYear();
+    }
+
+    // hash password jika diubah
     let hashedPassword = current.password;
     if (password !== undefined) {
       hashedPassword = await bcrypt.hash(password, 10);
@@ -68,12 +86,21 @@ exports.updateUser = async (req, res) => {
       email: email ?? current.email,
       phone: phone ?? current.phone,
       password: hashedPassword,
+      tanggal_lahir: finalTanggalLahir,
+      tahun_lahir: finalTahunLahir,
       status: status ?? current.status,
     };
 
     const query = `
       UPDATE users
-      SET name = ?, email = ?, phone = ?, password = ?, status = ?
+      SET 
+        name = ?,
+        email = ?,
+        phone = ?,
+        password = ?,
+        tanggal_lahir = ?,
+        tahun_lahir = ?,
+        status = ?
       WHERE id = ?
     `;
 
@@ -82,6 +109,8 @@ exports.updateUser = async (req, res) => {
       updatedData.email,
       updatedData.phone,
       updatedData.password,
+      updatedData.tanggal_lahir,
+      updatedData.tahun_lahir,
       updatedData.status,
       id,
     ]);
@@ -93,6 +122,8 @@ exports.updateUser = async (req, res) => {
         name: updatedData.name,
         email: updatedData.email,
         phone: updatedData.phone,
+        tanggal_lahir: updatedData.tanggal_lahir,
+        tahun_lahir: updatedData.tahun_lahir,
         status: updatedData.status,
       },
     });

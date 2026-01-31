@@ -10,6 +10,7 @@ exports.getAllUsers = async (req, res) => {
         u.name,
         u.email,
         u.phone,
+        u.tanggal_lahir,
         u.status,
         u.created_at,
 
