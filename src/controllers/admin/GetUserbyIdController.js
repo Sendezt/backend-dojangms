@@ -8,7 +8,7 @@ exports.getUserById = async (req, res) => {
     // Ambil data user
     const [[user]] = await conn.query(
       `
-            SELECT id,name,email,phone,status,created_at
+            SELECT id,name,email,phone,status,tanggal_lahir, created_at
             FROM users
             WHERE id = ?
             `,
