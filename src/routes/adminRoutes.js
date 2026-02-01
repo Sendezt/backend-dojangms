@@ -67,6 +67,9 @@ router.patch("/update/belts/:id", updateBelt);
 router.delete("/delete/belts/:id", deleteBelt);
 
 // championship participant route
-router.post("/create/championship/participant/:id", addParticipant);
+router.post(
+  "/create/championship/participant/:championship_id",
+  addParticipant,
+);
 
 module.exports = router;
