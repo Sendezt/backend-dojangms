@@ -23,7 +23,10 @@ exports.createChampionship = async (req, res) => {
       });
     }
 
-    const query = `INSERT INTO championships(name, level, location, start_date, end_date) VALUES (?,?,?,?,?)`;
+    // Ekstrak tahun dari start_date
+    const year = new Date(start_date).getFullYear();
+
+    const query = `INSERT INTO kejuaraan(name, level, location, start_date, end_date, year) VALUES (?,?,?,?,?,?)`;
 
     const [result] = await db.execute(query, [
       name,
@@ -31,6 +34,7 @@ exports.createChampionship = async (req, res) => {
       location,
       start_date,
       end_date,
+      year,
     ]);
 
     res.status(201).json({
@@ -42,6 +46,7 @@ exports.createChampionship = async (req, res) => {
         location,
         start_date,
         end_date,
+        year,
       },
     });
   } catch (error) {
