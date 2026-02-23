@@ -32,10 +32,9 @@ exports.updateChampionship = async (req, res) => {
     // =====================
     // CEK DATA EXISTING
     // =====================
-    const [rows] = await db.execute(
-      "SELECT * FROM championships WHERE id = ?",
-      [id],
-    );
+    const [rows] = await db.execute("SELECT * FROM kejuaraan WHERE id = ?", [
+      id,
+    ]);
 
     if (rows.length === 0) {
       return res.status(404).json({
@@ -49,12 +48,7 @@ exports.updateChampionship = async (req, res) => {
     // VALIDASI LEVEL (JIKA ADA)
     // =====================
     if (level !== undefined) {
-      const allowedLevels = [
-        "kote",
-        "provinsi",
-        "nasional",
-        "internasional",
-      ];
+      const allowedLevels = ["kota", "provinsi", "nasional", "internasional"];
 
       if (!allowedLevels.includes(level)) {
         return res.status(400).json({
@@ -90,7 +84,7 @@ exports.updateChampionship = async (req, res) => {
     // UPDATE DATABASE
     // =====================
     const query = `
-      UPDATE championships
+      UPDATE kejuaraan
       SET name = ?, level = ?, location = ?, start_date = ?, end_date = ?
       WHERE id = ?
     `;

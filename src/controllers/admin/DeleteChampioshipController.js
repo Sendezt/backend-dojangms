@@ -12,7 +12,7 @@ exports.deleteChampionship = async (req, res) => {
 
     // cek data ada atau tidak
     const [check] = await db.execute(
-      "SELECT id FROM championships WHERE id = ?",
+      "SELECT id FROM kejuaraan WHERE id = ?",
       [id],
     );
 
@@ -22,7 +22,7 @@ exports.deleteChampionship = async (req, res) => {
       });
     }
 
-    await db.execute("DELETE FROM championships WHERE id = ?", [id]);
+    await db.execute("DELETE FROM kejuaraan WHERE id = ?", [id]);
 
     res.json({
       message: "Championship berhasil dihapus",

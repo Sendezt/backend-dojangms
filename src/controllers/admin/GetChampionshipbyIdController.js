@@ -6,7 +6,7 @@ exports.getChampionshipById = async (req, res) => {
 
     if (!id) {
       return res.status(400).json({
-        message: "ID championship wajib diisi",
+        message: "ID kejuaraan wajib diisi",
       });
     }
 
@@ -19,7 +19,7 @@ exports.getChampionshipById = async (req, res) => {
         location,
         start_date,
         end_date
-      FROM championships
+      FROM kejuaraan
       WHERE id = ?
     `,
       [id],
