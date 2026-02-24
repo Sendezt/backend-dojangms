@@ -25,7 +25,7 @@ jobs:
               pm2 restart dojangms-prod
             else
               cd /var/www/dojangms-staging
-              git pull origin development
+              git pull origin develop
               npm install
               pm2 restart dojangms-staging
             fi
