@@ -15,7 +15,7 @@ app.use(express.json());
 app.get("/", (req, res) => {
   res.json({
     status: true,
-    message: "Server is running successfully, Jokowi Slek Ama Gibran",
+    message: "Server is running successfully, welcome to the API",
     endpoint: ["/api/auth", "/api/admin", "/api/public"],
   });
 });
