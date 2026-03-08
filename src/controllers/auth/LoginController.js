@@ -21,10 +21,10 @@ exports.login = async (req, res) => {
       FROM users
       WHERE email = ?
       `,
-      [email]
+      [email],
     );
 
-    // ❌ Email atau password salah (disamakan)
+    // Email atau password salah (disamakan)
     if (!user) {
       return res.status(401).json({
         message: "Email atau password salah",
@@ -52,7 +52,7 @@ exports.login = async (req, res) => {
       JOIN roles r ON r.id = ur.role_id
       WHERE ur.user_id = ?
       `,
-      [user.id]
+      [user.id],
     );
 
     // Ambil sabuk aktif
@@ -63,7 +63,7 @@ exports.login = async (req, res) => {
       JOIN belts b ON b.id = ub.belt_id
       WHERE ub.user_id = ? AND ub.is_current = true
       `,
-      [user.id]
+      [user.id],
     );
 
     // Generate JWT
@@ -73,8 +73,8 @@ exports.login = async (req, res) => {
         email: user.email,
         roles: roles.map((r) => r.name),
       },
-      process.env.JWT_SECRET || "rahasia_jwt",
-      { expiresIn: "1d" }
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" },
     );
 
     res.json({
