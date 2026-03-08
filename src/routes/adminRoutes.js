@@ -1,6 +1,19 @@
 const express = require("express");
 const router = express.Router();
 
+// Pelatih
+const {
+  getAllPelatih,
+} = require("../controllers/admin/pelatih/getPelatihController");
+const {
+  getPelatihById,
+} = require("../controllers/admin/pelatih/getPelatihByIdController");
+
+// Murid
+const {
+  getUserMuridOnly,
+} = require("../controllers/admin/murid/getUserMuridOnlyController");
+
 // user
 const {
   getAllUsers,
@@ -67,6 +80,13 @@ const { deleteBelt } = require("../controllers/admin/DeleterBeltController");
 const {
   addParticipant,
 } = require("../controllers/admin/AddParticipantChampionshipController");
+
+// Pelatih Route
+router.get("/get/user/pelatih", getAllPelatih);
+router.get("/get/user/pelatih/:id", getPelatihById);
+
+// Murid Route
+router.get("/get/user/murid", getUserMuridOnly);
 
 // user route
 router.get("/get/user/all", getTotalMurid);
