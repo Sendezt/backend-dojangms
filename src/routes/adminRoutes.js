@@ -3,6 +3,9 @@ const router = express.Router();
 
 // Pelatih
 const {
+  getPelatihCounts,
+} = require("../controllers/admin/pelatih/getPelatihCount");
+const {
   getAllPelatih,
 } = require("../controllers/admin/pelatih/getPelatihController");
 const {
@@ -82,6 +85,7 @@ const {
 } = require("../controllers/admin/AddParticipantChampionshipController");
 
 // Pelatih Route
+router.get("/get/pelatih/counts", getPelatihCounts);
 router.get("/get/user/pelatih", getAllPelatih);
 router.get("/get/user/pelatih/:id", getPelatihById);
 

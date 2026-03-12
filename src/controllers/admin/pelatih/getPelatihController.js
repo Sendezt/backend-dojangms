@@ -5,59 +5,84 @@ exports.getAllPelatih = async (req, res) => {
 
   try {
     const allowedLimits = [10, 25, 50, 75, 100, 200];
+    const allowedStatuses = ["active", "inactive", "suspended"];
 
+    // ── query params ────────────────────────────────────────────────────────
     let page = parseInt(req.query.page) || 1;
     let limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search?.trim() || null; // "budi" / null
+    const status = req.query.status?.trim() || null; // "active" / "inactive" / "suspended" / null
 
     if (!allowedLimits.includes(limit)) limit = 10;
     if (page < 1) page = 1;
 
     const offset = (page - 1) * limit;
 
-    // ============================================
-    // 1. TOTAL DATA PELATIH
-    // ============================================
-    const [[totalData]] = await conn.query(`
-      SELECT COUNT(DISTINCT u.id) AS total
-      FROM users u
-      JOIN user_roles ur ON ur.user_id = u.id
-      JOIN roles r ON r.id = ur.role_id
-      WHERE r.name = 'pelatih'
-        AND u.status = 'active'
-    `);
+    // ── validasi status ─────────────────────────────────────────────────────
+    const filteredStatus = allowedStatuses.includes(status) ? status : null;
 
-    const totalPage = Math.ceil(totalData.total / limit);
+    // ── bangun WHERE clause dinamis ─────────────────────────────────────────
+    // Kondisi dasar: harus punya role 'pelatih'
+    const whereClauses = [
+      "EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.name = 'pelatih')",
+    ];
+    const whereParams = [];
+
+    // Filter status (kalau tidak ada, default tampil semua status)
+    if (filteredStatus) {
+      whereClauses.push("u.status = ?");
+      whereParams.push(filteredStatus);
+    }
+
+    // Filter search (cari di name, email, phone)
+    if (search) {
+      whereClauses.push("(u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)");
+      const like = `%${search}%`;
+      whereParams.push(like, like, like);
+    }
+
+    const whereSQL = "WHERE " + whereClauses.join(" AND ");
+
+    // ============================================
+    // 1. TOTAL DATA (pakai WHERE yang sama)
+    // ============================================
+    const [[totalData]] = await conn.query(
+      `SELECT COUNT(DISTINCT u.id) AS total
+       FROM users u
+       ${whereSQL}`,
+      whereParams,
+    );
+
+    const total = totalData.total;
+    const totalPage = Math.max(Math.ceil(total / limit), 1);
 
     // ============================================
     // 2. AMBIL DATA PELATIH
     // ============================================
     const [rows] = await conn.query(
-      `
-      SELECT
-        u.id,
-        u.name,
-        u.email,
-        u.phone,
-        u.foto,
-        u.jenis_kelamin,
-        u.alamat,
-        u.tanggal_lahir,
-        u.status,
-        u.created_at,
-        p.spesialisasi,
-        p.sertifikasi,
-        b.id   AS belt_id,
-        b.name AS belt_name
-      FROM users u
-      JOIN user_roles ur ON ur.user_id = u.id
-      JOIN roles r       ON r.id = ur.role_id AND r.name = 'pelatih'
-      LEFT JOIN pelatih p     ON p.user_id = u.id
-      LEFT JOIN user_belts ub ON ub.user_id = u.id AND ub.is_current = 1
-      LEFT JOIN belts b       ON b.id = ub.belt_id
-      WHERE u.status = 'active'
-      ORDER BY u.name ASC
-      LIMIT ${limit} OFFSET ${offset}
-      `,
+      `SELECT
+         u.id,
+         u.name,
+         u.email,
+         u.phone,
+         u.foto,
+         u.jenis_kelamin,
+         u.alamat,
+         u.tanggal_lahir,
+         u.status,
+         u.created_at,
+         p.spesialisasi,
+         p.sertifikasi,
+         b.id   AS belt_id,
+         b.name AS belt_name
+       FROM users u
+       LEFT JOIN pelatih p     ON p.user_id = u.id
+       LEFT JOIN user_belts ub ON ub.user_id = u.id AND ub.is_current = 1
+       LEFT JOIN belts b       ON b.id = ub.belt_id
+       ${whereSQL}
+       ORDER BY u.name ASC
+       LIMIT ? OFFSET ?`,
+      [...whereParams, limit, offset],
     );
 
     // ============================================
@@ -69,30 +94,27 @@ exports.getAllPelatih = async (req, res) => {
       const pelatihIds = rows.map((r) => r.id);
 
       const [kelasList] = await conn.query(
-        `
-        SELECT
-          k.id          AS kelas_id,
-          k.nama        AS kelas_nama,
-          k.status      AS kelas_status,
-          k.pelatih_id,
-          j.hari,
-          j.jam_mulai,
-          j.jam_selesai,
-          j.lokasi,
-          COUNT(DISTINCT km.user_id) AS jumlah_murid
-        FROM kelas k
-        LEFT JOIN jadwal_kelas j ON j.kelas_id = k.id
-        LEFT JOIN kelas_murid km ON km.kelas_id = k.id AND km.status = 'aktif'
-        WHERE k.pelatih_id IN (?)
-          AND k.status = 'aktif'
-        GROUP BY
-          k.id, k.nama, k.status, k.pelatih_id,
-          j.id, j.hari, j.jam_mulai, j.jam_selesai, j.lokasi
-        `,
+        `SELECT
+           k.id          AS kelas_id,
+           k.nama        AS kelas_nama,
+           k.status      AS kelas_status,
+           k.pelatih_id,
+           j.hari,
+           j.jam_mulai,
+           j.jam_selesai,
+           j.lokasi,
+           COUNT(DISTINCT km.user_id) AS jumlah_murid
+         FROM kelas k
+         LEFT JOIN jadwal_kelas j  ON j.kelas_id = k.id
+         LEFT JOIN kelas_murid km  ON km.kelas_id = k.id AND km.status = 'aktif'
+         WHERE k.pelatih_id IN (?)
+           AND k.status = 'aktif'
+         GROUP BY
+           k.id, k.nama, k.status, k.pelatih_id,
+           j.id, j.hari, j.jam_mulai, j.jam_selesai, j.lokasi`,
         [pelatihIds],
       );
 
-      // Susun kelas per pelatih_id
       for (const row of kelasList) {
         const pid = row.pelatih_id;
         if (!kelasMap[pid]) kelasMap[pid] = {};
@@ -165,7 +187,7 @@ exports.getAllPelatih = async (req, res) => {
       pagination: {
         page,
         limit,
-        total_data: totalData.total,
+        total_data: total,
         total_page: totalPage,
         has_next: page < totalPage,
         has_prev: page > 1,
