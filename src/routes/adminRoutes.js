@@ -29,7 +29,7 @@ const {
 const {
   getMonthlyMuridStats,
 } = require("../controllers/admin/GetUsersMonthlyStatsController");
-const { getUser } = require("../controllers/admin/GetUserController");
+const { getUser } = require("../controllers/admin/user/GetUserController");
 const {
   getMuridCompositionByBelt,
 } = require("../controllers/admin/user/getMuridCompositionByBeltController");
@@ -37,7 +37,9 @@ const {
   getMuridCompositionByAge,
 } = require("../controllers/admin/user/getMuridCompositionByAgeController");
 const { getUserById } = require("../controllers/admin/GetUserbyIdController");
-const { createUser } = require("../controllers/admin/CreateUserController");
+const {
+  createUser,
+} = require("../controllers/admin/user/CreateUserController");
 const { updateUser } = require("../controllers/admin/UpdateUserController");
 const { deleteUser } = require("../controllers/admin/DeleteUserController");
 const {

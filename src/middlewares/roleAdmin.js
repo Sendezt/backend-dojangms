@@ -1,3 +1,4 @@
+// src\middlewares\roleAdmin.js
 const db = require("../config/database");
 
 exports.authorizeRole = (...allowedRoles) => {
