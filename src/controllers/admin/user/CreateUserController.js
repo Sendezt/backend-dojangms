@@ -1,3 +1,4 @@
+// src\controllers\admin\user\CreateUserController.js
 const db = require("../../../config/database");
 const bcrypt = require("bcrypt");
 
@@ -10,7 +11,7 @@ exports.createUser = async (req, res) => {
     tanggal_lahir,
     roles,
     status,
-    belt_id, // ✅ FIX
+    belt_id,
   } = req.body;
 
   if (!name || !email || !password || !tanggal_lahir) {
@@ -32,7 +33,7 @@ exports.createUser = async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // ===== CEK EMAIL =====
+    // cek email sudah terdaftar
     const [existing] = await conn.query(
       "SELECT id FROM users WHERE email = ?",
       [email],
@@ -47,7 +48,7 @@ exports.createUser = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    // ===== INSERT USER =====
+    // insert user
     const [userResult] = await conn.query(
       `INSERT INTO users 
        (name, email, password, phone, tanggal_lahir, tahun_lahir, status)
@@ -63,15 +64,35 @@ exports.createUser = async (req, res) => {
       ],
     );
 
-    const userId = userResult.insertId; // ✅ FIX
+    const userId = userResult.insertId;
 
-    // ===== HANDLE ROLE =====
-    let roleList = ["murid"];
+    // Ambil roles dari request, atau default ke murid
+    let roleList = Array.isArray(roles) && roles.length > 0 ? roles : ["murid"];
 
-    const isAdmin = req.user?.roles?.includes("admin");
+    // Validasi permission: hanya admin yang bisa membuat admin/pelatih
+    const [userRoles] = await conn.query(
+      `SELECT r.name FROM user_roles ur 
+       JOIN roles r ON ur.role_id = r.id 
+       WHERE ur.user_id = ?`,
+      [req.user?.id],
+    );
 
-    if (isAdmin && Array.isArray(roles) && roles.length > 0) {
-      roleList = [...new Set(roles)];
+    const isAdmin = userRoles.some((r) => r.name === "admin");
+
+    // Cek apakah user coba buat admin tapi bukan admin
+    if (roleList.includes("admin") && !isAdmin) {
+      await conn.rollback();
+      return res.status(403).json({
+        message: "Hanya admin yang bisa membuat user dengan role admin",
+      });
+    }
+
+    // Cek apakah user coba buat pelatih tapi bukan admin
+    if (roleList.includes("pelatih") && !isAdmin) {
+      await conn.rollback();
+      return res.status(403).json({
+        message: "Hanya admin yang bisa membuat user dengan role pelatih",
+      });
     }
 
     const [validRoles] = await conn.query(
@@ -86,13 +107,6 @@ exports.createUser = async (req, res) => {
       });
     }
 
-    if (roleList.includes("admin") && !isAdmin) {
-      await conn.rollback();
-      return res.status(403).json({
-        message: "Hanya admin yang bisa membuat admin",
-      });
-    }
-
     for (const role of validRoles) {
       await conn.query(
         "INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)",
@@ -100,15 +114,15 @@ exports.createUser = async (req, res) => {
       );
     }
 
-    // ===== HANDLE PELATIH =====
+    // handle pelatih
     if (roleList.includes("pelatih")) {
       await conn.query(
-        `INSERT INTO pelatih (user_id, created_at) VALUES (?, NOW())`,
-        [userId],
+        `INSERT INTO pelatih (user_id, spesialisasi) VALUES (?, ?)`,
+        [userId, req.body.spesialisasi || "keduanya"],
       );
     }
 
-    // ===== HANDLE BELT (PINDAH KE SINI) =====
+    // handle belt
     if (roleList.includes("murid") || roleList.includes("pelatih")) {
       let selectedBeltId = belt_id;
 

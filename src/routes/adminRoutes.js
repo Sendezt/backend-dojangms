@@ -1,5 +1,7 @@
 const express = require("express");
 const router = express.Router();
+const { verifyToken } = require("../middlewares/authJwt");
+const { authorizeRole } = require("../middlewares/roleAdmin");
 
 // Pelatih
 const {
@@ -104,7 +106,7 @@ router.get("/get/user/stats", getMonthlyMuridStats);
 router.get("/get/user/chart", getChartData);
 router.get("/get/user/chart/all", getChartDataAll);
 router.get("/get/user/:id", getUserById);
-router.post("/create/user", createUser);
+router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
 router.patch("/update/user/:id", updateUser);
 router.delete("/delete/user/:id", deleteUser);
 router.patch("/softdelete/user/:id", softDeleteUser);
