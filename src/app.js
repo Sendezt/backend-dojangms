@@ -5,10 +5,11 @@ require("dotenv").config();
 const app = express();
 
 const adminRouter = require("./routes/adminRoutes");
+const latihanRouter = require("./routes/admin/latihanWajibRoutes");
 const authRouter = require("./routes/authRoutes");
 const publicRouter = require("./routes/publicRoutes");
-const swaggerUi = require('swagger-ui-express');
-const swaggerSpec = require('./config/swagger');
+const swaggerUi = require("swagger-ui-express");
+const swaggerSpec = require("./config/swagger");
 
 // Middleware
 app.use(cors());
@@ -25,8 +26,9 @@ app.get("/", (req, res) => {
 });
 
 // Routes
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/admin", adminRouter);
+app.use("/api/admin", latihanRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/public", publicRouter);
 

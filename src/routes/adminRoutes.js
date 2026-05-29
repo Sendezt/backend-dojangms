@@ -95,6 +95,8 @@ const {
  *   description: Admin operations
  */
 
+
+
 /**
  * @swagger
  * /api/admin/get/pelatih/counts:
@@ -259,8 +261,17 @@ router.get("/get/user/:id", getUserById);
  * @swagger
  * /api/admin/create/user:
  *   post:
- *     summary: Create new user
- *     tags: [Admin]
+ *     summary: Membuat user baru
+ *     description: |
+ *       Digunakan untuk membuat user baru dengan role murid, pelatih, atau admin.
+ *
+ *       Catatan:
+ *       - Jika roles tidak dikirim, otomatis menjadi "murid".
+ *       - Untuk role "pelatih" akan dibuat data pada tabel pelatih.
+ *       - Untuk role "murid" atau "pelatih" akan dibuat data belt awal.
+ *       - Hanya admin yang dapat membuat user dengan role admin atau pelatih.
+ *     tags:
+ *       - Admin
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -269,9 +280,145 @@ router.get("/get/user/:id", getUserById);
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - name
+ *               - email
+ *               - password
+ *               - tanggal_lahir
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Budi Santoso
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: budi@mail.com
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: password123
+ *               phone:
+ *                 type: string
+ *                 example: "081234567890"
+ *               tanggal_lahir:
+ *                 type: string
+ *                 format: date
+ *                 example: "2010-05-20"
+ *               status:
+ *                 type: string
+ *                 enum:
+ *                   - active
+ *                   - inactive
+ *                 example: active
+ *               roles:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum:
+ *                     - admin
+ *                     - pelatih
+ *                     - murid
+ *                 example:
+ *                   - murid
+ *               belt_id:
+ *                 type: integer
+ *                 example: 1
+ *               spesialisasi:
+ *                 type: string
+ *                 enum:
+ *                   - poomsae
+ *                   - kyorugi
+ *                   - keduanya
+ *                 example: keduanya
+ *
+ *           examples:
+ *             Murid:
+ *               value:
+ *                 name: Budi Santoso
+ *                 email: budi@mail.com
+ *                 password: password123
+ *                 phone: "081234567890"
+ *                 tanggal_lahir: "2010-05-20"
+ *                 status: active
+ *                 roles:
+ *                   - murid
+ *                 belt_id: 1
+ *
+ *             Pelatih:
+ *               value:
+ *                 name: Ahmad Wijaya
+ *                 email: ahmad@mail.com
+ *                 password: password123
+ *                 phone: "081234567890"
+ *                 tanggal_lahir: "1990-01-10"
+ *                 status: active
+ *                 roles:
+ *                   - pelatih
+ *                 spesialisasi: keduanya
+ *                 belt_id: 5
+ *
  *     responses:
  *       201:
- *         description: Created
+ *         description: User berhasil dibuat
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: User berhasil dibuat
+ *               data:
+ *                 id: 15
+ *                 name: Budi Santoso
+ *                 email: budi@mail.com
+ *                 roles:
+ *                   - murid
+ *
+ *       400:
+ *         description: Data tidak valid
+ *         content:
+ *           application/json:
+ *             examples:
+ *               RequiredField:
+ *                 value:
+ *                   message: Name, email, password, dan tanggal lahir wajib diisi
+ *
+ *               InvalidDate:
+ *                 value:
+ *                   message: Format tanggal lahir tidak valid
+ *
+ *               InvalidRole:
+ *                 value:
+ *                   message: Ada role yang tidak valid
+ *
+ *               InvalidBelt:
+ *                 value:
+ *                   message: Belt tidak valid
+ *
+ *       403:
+ *         description: Tidak memiliki hak akses
+ *         content:
+ *           application/json:
+ *             examples:
+ *               CreateAdmin:
+ *                 value:
+ *                   message: Hanya admin yang bisa membuat user dengan role admin
+ *
+ *               CreatePelatih:
+ *                 value:
+ *                   message: Hanya admin yang bisa membuat user dengan role pelatih
+ *
+ *       409:
+ *         description: Email sudah digunakan
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Email sudah terdaftar
+ *
+ *       500:
+ *         description: Terjadi kesalahan server
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Gagal membuat user
+ *               error: Internal server error
  */
 router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
 
