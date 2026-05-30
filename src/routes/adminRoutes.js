@@ -95,8 +95,6 @@ const {
  *   description: Admin operations
  */
 
-
-
 /**
  * @swagger
  * /api/admin/get/pelatih/counts:
@@ -426,23 +424,143 @@ router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
  * @swagger
  * /api/admin/update/user/{id}:
  *   patch:
- *     summary: Update user
+ *     summary: Update data user
  *     tags: [Admin]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
+ *         description: ID user yang akan diupdate
  *         schema:
- *           type: string
+ *           type: integer
+ *           example: 1
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: John Doe
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: john@example.com
+ *               phone:
+ *                 type: string
+ *                 example: "081234567890"
+ *               password:
+ *                 type: string
+ *                 format: password
+ *                 example: password123
+ *               tanggal_lahir:
+ *                 type: string
+ *                 format: date
+ *                 example: "2000-01-15"
+ *               status:
+ *                 type: string
+ *                 enum: [active, inactive]
+ *                 example: active
+ *               belt_id:
+ *                 type: integer
+ *                 description: ID sabuk baru dari tabel belts
+ *                 example: 3
+ *               belt_achieved_at:
+ *                 type: string
+ *                 format: date
+ *                 description: Tanggal pencapaian sabuk (opsional, default hari ini)
+ *                 example: "2025-05-01"
+ *           examples:
+ *             updateBiasa:
+ *               summary: Update data profil saja
+ *               value:
+ *                 name: John Doe
+ *                 email: john@example.com
+ *                 phone: "081234567890"
+ *                 tanggal_lahir: "2000-01-15"
+ *                 status: active
+ *             updateSabuk:
+ *               summary: Update sabuk saja
+ *               value:
+ *                 belt_id: 3
+ *                 belt_achieved_at: "2025-05-01"
+ *             updateKeduanya:
+ *               summary: Update profil sekaligus sabuk
+ *               value:
+ *                 name: John Doe
+ *                 status: active
+ *                 belt_id: 3
+ *                 belt_achieved_at: "2025-05-01"
  *     responses:
  *       200:
- *         description: Success
+ *         description: User berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             examples:
+ *               tanpaSabuk:
+ *                 summary: Response tanpa update sabuk
+ *                 value:
+ *                   message: User berhasil diperbarui
+ *                   data:
+ *                     id: 1
+ *                     name: John Doe
+ *                     email: john@example.com
+ *                     phone: "081234567890"
+ *                     tanggal_lahir: "2000-01-15"
+ *                     tahun_lahir: 2000
+ *                     status: active
+ *               denganSabuk:
+ *                 summary: Response dengan update sabuk
+ *                 value:
+ *                   message: User berhasil diperbarui
+ *                   data:
+ *                     id: 1
+ *                     name: John Doe
+ *                     email: john@example.com
+ *                     phone: "081234567890"
+ *                     tanggal_lahir: "2000-01-15"
+ *                     tahun_lahir: 2000
+ *                     status: active
+ *                     sabuk_saat_ini:
+ *                       id: 3
+ *                       name: Kuning Strip Hijau
+ *       400:
+ *         description: Validasi gagal
+ *         content:
+ *           application/json:
+ *             examples:
+ *               idKosong:
+ *                 value:
+ *                   message: ID user wajib diisi
+ *               fieldKosong:
+ *                 value:
+ *                   message: Minimal satu field harus diupdate
+ *               emailSudahAda:
+ *                 value:
+ *                   message: Email sudah digunakan
+ *               statusTidakValid:
+ *                 value:
+ *                   message: Status tidak valid
+ *               tanggalTidakValid:
+ *                 value:
+ *                   message: Format tanggal lahir tidak valid
+ *               sabukTidakDitemukan:
+ *                 value:
+ *                   message: Sabuk tidak ditemukan
+ *       404:
+ *         description: User tidak ditemukan
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: User tidak ditemukan
+ *       500:
+ *         description: Terjadi kesalahan pada server
+ *         content:
+ *           application/json:
+ *             example:
+ *               message: Terjadi kesalahan pada server
  */
 router.patch("/update/user/:id", updateUser);
 

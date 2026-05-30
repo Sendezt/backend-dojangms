@@ -1,3 +1,4 @@
+// src\controllers\admin\pelatih\getPelatihController.js
 const db = require("../../../config/database");
 
 exports.getAllPelatih = async (req, res) => {
@@ -7,7 +8,7 @@ exports.getAllPelatih = async (req, res) => {
     const allowedLimits = [10, 25, 50, 75, 100, 200];
     const allowedStatuses = ["active", "inactive", "suspended"];
 
-    // ── query params ────────────────────────────────────────────────────────
+    // query params
     let page = parseInt(req.query.page) || 1;
     let limit = parseInt(req.query.limit) || 10;
     const search = req.query.search?.trim() || null; // "budi" / null
@@ -18,10 +19,10 @@ exports.getAllPelatih = async (req, res) => {
 
     const offset = (page - 1) * limit;
 
-    // ── validasi status ─────────────────────────────────────────────────────
+    // validasi status
     const filteredStatus = allowedStatuses.includes(status) ? status : null;
 
-    // ── bangun WHERE clause dinamis ─────────────────────────────────────────
+    // bangun WHERE clause dinamis
     // Kondisi dasar: harus punya role 'pelatih'
     const whereClauses = [
       "EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.name = 'pelatih')",
@@ -98,19 +99,20 @@ exports.getAllPelatih = async (req, res) => {
            k.id          AS kelas_id,
            k.nama        AS kelas_nama,
            k.status      AS kelas_status,
-           k.pelatih_id,
+           kp.user_id    AS pelatih_id,
            j.hari,
            j.jam_mulai,
            j.jam_selesai,
            j.lokasi,
            COUNT(DISTINCT km.user_id) AS jumlah_murid
-         FROM kelas k
+         FROM kelas_pelatih kp
+         JOIN kelas k       ON k.id = kp.kelas_id
          LEFT JOIN jadwal_kelas j  ON j.kelas_id = k.id
          LEFT JOIN kelas_murid km  ON km.kelas_id = k.id AND km.status = 'aktif'
-         WHERE k.pelatih_id IN (?)
+         WHERE kp.user_id IN (?)
            AND k.status = 'aktif'
          GROUP BY
-           k.id, k.nama, k.status, k.pelatih_id,
+           k.id, k.nama, k.status, kp.user_id,
            j.id, j.hari, j.jam_mulai, j.jam_selesai, j.lokasi`,
         [pelatihIds],
       );

@@ -1,3 +1,4 @@
+// src\controllers\admin\murid\getUserMuridOnlyController.js
 const db = require("../../../config/database");
 
 exports.getUserMuridOnly = async (req, res) => {
