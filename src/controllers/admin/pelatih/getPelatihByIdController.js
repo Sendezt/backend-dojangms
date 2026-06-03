@@ -55,27 +55,27 @@ exports.getPelatihById = async (req, res) => {
     // ============================================
     const [kelasList] = await conn.query(
       `
-      SELECT
-        k.id          AS kelas_id,
-        k.nama        AS kelas_nama,
-        k.status      AS kelas_status,
-        k.pelatih_id,
-        j.id          AS jadwal_id,
-        j.hari,
-        j.jam_mulai,
-        j.jam_selesai,
-        j.lokasi,
-        COUNT(DISTINCT km.user_id) AS jumlah_murid
-      FROM kelas k
-      LEFT JOIN jadwal_kelas j ON j.kelas_id = k.id
-      LEFT JOIN kelas_murid km ON km.kelas_id = k.id AND km.status = 'aktif'
-      WHERE k.pelatih_id = ?
-        AND k.status = 'aktif'
-      GROUP BY
-        k.id, k.nama, k.status, k.pelatih_id,
-        j.id, j.hari, j.jam_mulai, j.jam_selesai, j.lokasi
-      ORDER BY k.nama ASC, j.hari ASC, j.jam_mulai ASC
-      `,
+  SELECT
+    k.id          AS kelas_id,
+    k.nama        AS kelas_nama,
+    k.status      AS kelas_status,
+    j.id          AS jadwal_id,
+    j.hari,
+    j.jam_mulai,
+    j.jam_selesai,
+    j.lokasi,
+    COUNT(DISTINCT km.user_id) AS jumlah_murid
+  FROM kelas_pelatih kp
+  JOIN kelas k ON k.id = kp.kelas_id
+  LEFT JOIN jadwal_kelas j ON j.kelas_id = k.id
+  LEFT JOIN kelas_murid km ON km.kelas_id = k.id AND km.status = 'aktif'
+  WHERE kp.user_id = ?
+    AND k.status = 'aktif'
+  GROUP BY
+    k.id, k.nama, k.status,
+    j.id, j.hari, j.jam_mulai, j.jam_selesai, j.lokasi
+  ORDER BY k.nama ASC, j.hari ASC, j.jam_mulai ASC
+  `,
       [pelatihId],
     );
 

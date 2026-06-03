@@ -328,6 +328,10 @@ router.get("/get/user/:id", getUserById);
  *                   - kyorugi
  *                   - keduanya
  *                 example: keduanya
+ *               sertifikasi:
+ *                 type: string
+ *                 description: Sertifikasi pelatih (hanya untuk role pelatih)
+ *                 example: "Sertifikasi A"
  *
  *           examples:
  *             Murid:
@@ -353,7 +357,19 @@ router.get("/get/user/:id", getUserById);
  *                 roles:
  *                   - pelatih
  *                 spesialisasi: keduanya
+ *                 sertifikasi: "Sertifikasi A"
  *                 belt_id: 5
+ *
+ *             Admin:
+ *               value:
+ *                 name: Admin Satu
+ *                 email: admin.satu@gmail.com
+ *                 password: admin.satu@gmail.com
+ *                 phone: "081234567890"
+ *                 tanggal_lahir: "1990-01-10"
+ *                 status: active
+ *                 roles:
+ *                   - admin
  *
  *     responses:
  *       201:
@@ -467,6 +483,14 @@ router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
  *                 type: integer
  *                 description: ID sabuk baru dari tabel belts
  *                 example: 3
+ *               spesialisasi:
+ *                 type: string
+ *                 enum: [kyorugi, poomsae, "kyorugi & poomsae"]
+ *                 Description: Spesialisasi pelatih (hanya untuk role pelatih)
+ *                 example: kyorugi
+ *               sertifikasi:
+ *                 type: string
+ *                 example: "Sertifikasi A"
  *               belt_achieved_at:
  *                 type: string
  *                 format: date
@@ -486,6 +510,11 @@ router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
  *               value:
  *                 belt_id: 3
  *                 belt_achieved_at: "2025-05-01"
+ *             updatePelatih:
+ *               summary: Update data pelatih
+ *               value:
+ *                 spesialisasi: kyorugi
+ *                 sertifikasi: "Sertifikasi A"
  *             updateKeduanya:
  *               summary: Update profil sekaligus sabuk
  *               value:

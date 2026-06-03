@@ -12,6 +12,7 @@ exports.createUser = async (req, res) => {
     roles,
     status,
     belt_id,
+    sertifikasi,
   } = req.body;
 
   if (!name || !email || !password || !tanggal_lahir) {
@@ -117,8 +118,12 @@ exports.createUser = async (req, res) => {
     // handle pelatih
     if (roleList.includes("pelatih")) {
       await conn.query(
-        `INSERT INTO pelatih (user_id, spesialisasi) VALUES (?, ?)`,
-        [userId, req.body.spesialisasi || "keduanya"],
+        `INSERT INTO pelatih (user_id, spesialisasi, sertifikasi) VALUES (?, ?, ?)`,
+        [
+          userId,
+          req.body.spesialisasi || "kyorugi & poomsae",
+          sertifikasi || null,
+        ],
       );
     }
 
