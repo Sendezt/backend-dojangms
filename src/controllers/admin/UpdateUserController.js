@@ -2,7 +2,7 @@ const db = require("../../config/database");
 const bcrypt = require("bcrypt");
 
 exports.updateUser = async (req, res) => {
-  const conn = await db.getConnection(); // ← pakai connection untuk transaction
+  const conn = await db.getConnection();
 
   try {
     const { id } = req.params;
@@ -16,14 +16,15 @@ exports.updateUser = async (req, res) => {
       belt_id,
       belt_achieved_at,
       spesialisasi,
-      sertifikasi,
+      sertifikasi, // array of object [{ id, nama }]
+      bio,
     } = req.body;
 
     if (!id) {
       return res.status(400).json({ message: "ID user wajib diisi" });
     }
 
-    // minimal 1 field dikirim
+    // Minimal satu field dikirim
     if (
       name === undefined &&
       email === undefined &&
@@ -33,15 +34,22 @@ exports.updateUser = async (req, res) => {
       tanggal_lahir === undefined &&
       belt_id === undefined &&
       spesialisasi === undefined &&
-      sertifikasi === undefined
+      sertifikasi === undefined &&
+      bio === undefined
     ) {
       return res
         .status(400)
         .json({ message: "Minimal satu field harus diupdate" });
     }
 
+    // Cek apakah user adalah pelatih (jika update field khusus pelatih)
     let isPelatih = false;
-    if (spesialisasi !== undefined || sertifikasi !== undefined) {
+    let pelatihRecord = null;
+    if (
+      spesialisasi !== undefined ||
+      sertifikasi !== undefined ||
+      bio !== undefined
+    ) {
       const [roleCheck] = await conn.execute(
         `SELECT r.name FROM user_roles ur
          JOIN roles r ON r.id = ur.role_id
@@ -51,25 +59,34 @@ exports.updateUser = async (req, res) => {
       if (roleCheck.length === 0) {
         return res.status(400).json({
           message:
-            "User ini bukan pelatih, tidak bisa update spesialisasi/sertifikasi",
+            "User ini bukan pelatih, tidak bisa update spesialisasi/sertifikasi/bio",
         });
       }
       isPelatih = true;
+
+      // ambil pelatih_id jika ada
+      const [pelatihRows] = await conn.execute(
+        "SELECT id FROM pelatih WHERE user_id = ?",
+        [id],
+      );
+      if (pelatihRows.length > 0) {
+        pelatihRecord = pelatihRows[0];
+      }
     }
 
-    // cek user
+    // Cek user
     const [rows] = await conn.execute("SELECT * FROM users WHERE id = ?", [id]);
     if (rows.length === 0) {
       return res.status(404).json({ message: "User tidak ditemukan" });
     }
     const current = rows[0];
 
-    // validasi status
+    // Validasi status
     if (status !== undefined && !["active", "inactive"].includes(status)) {
       return res.status(400).json({ message: "Status tidak valid" });
     }
 
-    // validasi email unik
+    // Validasi email unik
     if (email !== undefined && email !== current.email) {
       const [checkEmail] = await conn.execute(
         "SELECT id FROM users WHERE email = ? AND id != ?",
@@ -80,7 +97,7 @@ exports.updateUser = async (req, res) => {
       }
     }
 
-    // validasi belt_id — pastikan ada di tabel belts
+    // Validasi belt_id
     if (belt_id !== undefined) {
       const [checkBelt] = await conn.execute(
         "SELECT id FROM belts WHERE id = ?",
@@ -91,7 +108,7 @@ exports.updateUser = async (req, res) => {
       }
     }
 
-    // validasi tanggal lahir
+    // Validasi tanggal lahir
     let finalTanggalLahir = current.tanggal_lahir;
     let finalTahunLahir = current.tahun_lahir;
     if (tanggal_lahir !== undefined) {
@@ -105,23 +122,53 @@ exports.updateUser = async (req, res) => {
       finalTahunLahir = parsedDate.getFullYear();
     }
 
-    // hash password jika diubah
+    // Hash password jika diubah
     let hashedPassword = current.password;
     if (password !== undefined) {
       hashedPassword = await bcrypt.hash(password, 10);
     }
 
+    // Validasi spesialisasi
     if (
       spesialisasi !== undefined &&
-      !["kyorugi", "poomsae", "kyorugi & poomsae"].includes(spesialisasi)
+      !["kyorugi", "poomsae", "keduanya", "all", "kyourigi & poomsae"].includes(
+        spesialisasi,
+      )
     ) {
       return res.status(400).json({ message: "Spesialisasi tidak valid" });
     }
 
-    // ── mulai transaction ───────────────────────────────────────────────────
+    // Validasi sertifikasi: harus array of object dengan id dan nama
+    if (sertifikasi !== undefined) {
+      if (!Array.isArray(sertifikasi)) {
+        return res
+          .status(400)
+          .json({ message: "sertifikasi harus berupa array" });
+      }
+      for (const item of sertifikasi) {
+        if (!item.id || typeof item.id !== "number") {
+          return res.status(400).json({
+            message:
+              "Setiap item sertifikasi harus memiliki properti 'id' (integer)",
+          });
+        }
+        if (
+          !item.nama ||
+          typeof item.nama !== "string" ||
+          item.nama.trim() === ""
+        ) {
+          return res.status(400).json({
+            message:
+              "Setiap item sertifikasi harus memiliki properti 'nama' (string tidak kosong)",
+          });
+        }
+      }
+    }
+
+    // Mulai transaction
     await conn.beginTransaction();
 
-    // update tabel users
+    // Update tabel users
     await conn.execute(
       `UPDATE users SET 
         name = ?, email = ?, phone = ?, password = ?,
@@ -139,36 +186,28 @@ exports.updateUser = async (req, res) => {
       ],
     );
 
-    // update sabuk jika belt_id dikirim
+    // Update sabuk jika belt_id dikirim
     let newBelt = null;
     if (belt_id !== undefined) {
-      // 1. non-aktifkan sabuk lama
       await conn.execute(
         "UPDATE user_belts SET is_current = 0 WHERE user_id = ?",
         [id],
       );
-
-      // 2. cek apakah sabuk ini pernah dimiliki user sebelumnya
       const [existingBelt] = await conn.execute(
         "SELECT id FROM user_belts WHERE user_id = ? AND belt_id = ?",
         [id, belt_id],
       );
-
       if (existingBelt.length > 0) {
-        // update record lama — aktifkan kembali
         await conn.execute(
           "UPDATE user_belts SET is_current = 1, achieved_at = ? WHERE user_id = ? AND belt_id = ?",
           [belt_achieved_at ?? new Date(), id, belt_id],
         );
       } else {
-        // insert sabuk baru
         await conn.execute(
           "INSERT INTO user_belts (user_id, belt_id, achieved_at, is_current) VALUES (?, ?, ?, 1)",
           [id, belt_id, belt_achieved_at ?? new Date()],
         );
       }
-
-      // ambil nama sabuk untuk response
       const [beltData] = await conn.execute(
         "SELECT id, name FROM belts WHERE id = ?",
         [belt_id],
@@ -176,24 +215,25 @@ exports.updateUser = async (req, res) => {
       newBelt = beltData[0];
     }
 
-    // UPDATE spesialisasi & sertifikasi (jika dikirim dan user adalah pelatih)
+    // Update data pelatih (spesialisasi, bio)
     if (isPelatih) {
-      // cek apakah sudah ada record di tabel pelatih
-      const [existingPelatih] = await conn.execute(
-        "SELECT id FROM pelatih WHERE user_id = ?",
-        [id],
-      );
-      if (existingPelatih.length > 0) {
-        // update existing
+      if (!pelatihRecord) {
+        const insertResult = await conn.execute(
+          `INSERT INTO pelatih (user_id, spesialisasi, bio)
+           VALUES (?, ?, ?)`,
+          [id, spesialisasi ?? "keduanya", bio ?? null],
+        );
+        pelatihRecord = { id: insertResult[0].insertId };
+      } else {
         const updates = [];
         const values = [];
         if (spesialisasi !== undefined) {
           updates.push("spesialisasi = ?");
           values.push(spesialisasi);
         }
-        if (sertifikasi !== undefined) {
-          updates.push("sertifikasi = ?");
-          values.push(sertifikasi);
+        if (bio !== undefined) {
+          updates.push("bio = ?");
+          values.push(bio);
         }
         if (updates.length > 0) {
           values.push(id);
@@ -202,26 +242,56 @@ exports.updateUser = async (req, res) => {
             values,
           );
         }
-      } else {
-        // insert new record
-        await conn.execute(
-          `INSERT INTO pelatih (user_id, spesialisasi, sertifikasi)
-         VALUES (?, ?, ?)`,
-          [id, spesialisasi ?? "kyorugi & poomsae", sertifikasi ?? null],
-        );
+      }
+
+      // Update sertifikasi berdasarkan ID (TIDAK replace all)
+      if (sertifikasi !== undefined) {
+        for (const item of sertifikasi) {
+          // Cek apakah sertifikasi dengan id ini milik pelatih yang sama
+          const [check] = await conn.execute(
+            "SELECT id FROM sertifikasi_pelatih WHERE id = ? AND pelatih_id = ?",
+            [item.id, pelatihRecord.id],
+          );
+          if (check.length === 0) {
+            // Rollback jika ada ID yang tidak valid
+            throw new Error(
+              `Sertifikasi dengan ID ${item.id} tidak ditemukan atau bukan milik pelatih ini`,
+            );
+          }
+          // Update nama sertifikasi
+          await conn.execute(
+            "UPDATE sertifikasi_pelatih SET nama_sertifikasi = ? WHERE id = ?",
+            [item.nama.trim(), item.id],
+          );
+        }
       }
     }
 
     await conn.commit();
-    // ── end transaction ─────────────────────────────────────────────────────
+
+    // Ambil data terbaru untuk response
     let pelatihData = null;
     if (isPelatih) {
       const [pelatihRows] = await conn.execute(
-        "SELECT spesialisasi, sertifikasi FROM pelatih WHERE user_id = ?",
+        "SELECT spesialisasi, bio FROM pelatih WHERE user_id = ?",
         [id],
       );
       if (pelatihRows.length > 0) {
-        pelatihData = pelatihRows[0];
+        const [sertifRows] = await conn.execute(
+          `SELECT sp.id, sp.nama_sertifikasi
+           FROM sertifikasi_pelatih sp
+           JOIN pelatih p ON p.id = sp.pelatih_id
+           WHERE p.user_id = ?`,
+          [id],
+        );
+        pelatihData = {
+          spesialisasi: pelatihRows[0].spesialisasi,
+          bio: pelatihRows[0].bio,
+          sertifikasi: sertifRows.map((s) => ({
+            id: s.id,
+            nama: s.nama_sertifikasi,
+          })),
+        };
       }
     }
 
@@ -239,15 +309,16 @@ exports.updateUser = async (req, res) => {
           sabuk_saat_ini: { id: newBelt.id, name: newBelt.name },
         }),
         ...(pelatihData && {
-          spesialisasi: pelatihData.spesialisasi,
-          sertifikasi: pelatihData.sertifikasi,
+          pelatih: pelatihData,
         }),
       },
     });
   } catch (error) {
-    await conn.rollback(); // ← batalkan semua jika ada yang gagal
+    await conn.rollback();
     console.error(error);
-    res.status(500).json({ message: "Terjadi kesalahan pada server" });
+    res
+      .status(500)
+      .json({ message: "Terjadi kesalahan pada server", error: error.message });
   } finally {
     conn.release();
   }

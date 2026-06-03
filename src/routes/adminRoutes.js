@@ -178,6 +178,24 @@ router.get("/get/user", getUser);
 
 /**
  * @swagger
+ * /api/admin/get/user/{id}:
+ *   get:
+ *     summary: Get user by ID
+ *     tags: [Admin]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ */
+router.get("/get/user/:id", getUserById);
+
+/**
+ * @swagger
  * /api/admin/get/user/piechart/belt:
  *   get:
  *     summary: Get murid composition by belt
@@ -239,21 +257,183 @@ router.get("/get/user/chart/all", getChartDataAll);
 
 /**
  * @swagger
- * /api/admin/get/user/{id}:
+ * /api/admin/get/user/pelatih/{id}:
  *   get:
- *     summary: Get user by ID
+ *     summary: Get detail pelatih by ID
  *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
- *           type: string
+ *           type: integer
+ *         description: ID user (pelatih)
+ *         example: 2
  *     responses:
  *       200:
- *         description: Success
+ *         description: Berhasil mengambil detail pelatih
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Berhasil mengambil detail pelatih"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                     foto:
+ *                       type: string
+ *                       nullable: true
+ *                     jenis_kelamin:
+ *                       type: string
+ *                       enum: [laki-laki, perempuan]
+ *                       nullable: true
+ *                     alamat:
+ *                       type: string
+ *                       nullable: true
+ *                     tanggal_lahir:
+ *                       type: string
+ *                       format: date
+ *                     tanggal_bergabung:
+ *                       type: string
+ *                       format: date-time
+ *                     status:
+ *                       type: string
+ *                       enum: [active, inactive]
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *                     pelatih:
+ *                       type: object
+ *                       properties:
+ *                         spesialisasi:
+ *                           type: string
+ *                           enum: [kyorugi, poomsae, keduanya, all, "kyourigi & poomsae"]
+ *                           nullable: true
+ *                         bio:
+ *                           type: string
+ *                           nullable: true
+ *                         sertifikasi:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: integer
+ *                               nama:
+ *                                 type: string
+ *                           description: Daftar sertifikasi dengan ID masing-masing
+ *                     sabuk_saat_ini:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         name:
+ *                           type: string
+ *                       nullable: true
+ *                     kelas_diampu:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                           status:
+ *                             type: string
+ *                           jumlah_murid:
+ *                             type: integer
+ *                           jadwal:
+ *                             type: array
+ *                             items:
+ *                               type: object
+ *                               properties:
+ *                                 hari:
+ *                                   type: string
+ *                                   enum: [senin, selasa, rabu, kamis, jumat, sabtu, minggu]
+ *                                 jam_mulai:
+ *                                   type: string
+ *                                   format: time
+ *                                 jam_selesai:
+ *                                   type: string
+ *                                   format: time
+ *                                 lokasi:
+ *                                   type: string
+ *                     total_murid:
+ *                       type: integer
+ *             example:
+ *               message: "Berhasil mengambil detail pelatih"
+ *               data:
+ *                 id: 2
+ *                 name: "Pelatih Satu"
+ *                 email: "pelatih.satu@gmail.com"
+ *                 phone: "082345678901"
+ *                 foto: null
+ *                 jenis_kelamin: null
+ *                 alamat: null
+ *                 tanggal_lahir: "1990-03-20"
+ *                 tanggal_bergabung: "2026-04-11T15:37:55.000Z"
+ *                 status: "active"
+ *                 updated_at: "2026-04-11T15:37:55.000Z"
+ *                 pelatih:
+ *                   spesialisasi: "kyorugi"
+ *                   bio: null
+ *                   sertifikasi:
+ *                     - id: 1
+ *                       nama: "Sertifikasi Nasional"
+ *                     - id: 2
+ *                       nama: "Pelatih Kyorugi Level 1"
+ *                 sabuk_saat_ini:
+ *                   id: 12
+ *                   name: "DAN I"
+ *                 kelas_diampu:
+ *                   - id: 1
+ *                     nama: "Kelas Kyorugi Pemula"
+ *                     status: "aktif"
+ *                     jumlah_murid: 15
+ *                     jadwal:
+ *                       - hari: "senin"
+ *                         jam_mulai: "16:00:00"
+ *                         jam_selesai: "18:00:00"
+ *                         lokasi: "GOR Utama"
+ *                 total_murid: 15
+ *       400:
+ *         description: ID pelatih tidak valid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               message: "ID pelatih tidak valid"
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Pelatih tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               message: "Pelatih tidak ditemukan"
+ *       500:
+ *         description: Kesalahan server
  */
-router.get("/get/user/:id", getUserById);
+router.get("/get/user/pelatih/:id", getPelatihById);
 
 /**
  * @swagger
@@ -440,16 +620,15 @@ router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
  * @swagger
  * /api/admin/update/user/{id}:
  *   patch:
- *     summary: Update data user
+ *     summary: Update data user (termasuk sabuk dan data pelatih)
  *     tags: [Admin]
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: ID user yang akan diupdate
  *         schema:
  *           type: integer
- *           example: 1
+ *         description: ID user yang akan diupdate
  *     requestBody:
  *       required: true
  *       content:
@@ -459,137 +638,104 @@ router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
  *             properties:
  *               name:
  *                 type: string
- *                 example: John Doe
  *               email:
  *                 type: string
  *                 format: email
- *                 example: john@example.com
  *               phone:
  *                 type: string
- *                 example: "081234567890"
  *               password:
  *                 type: string
  *                 format: password
- *                 example: password123
  *               tanggal_lahir:
  *                 type: string
  *                 format: date
- *                 example: "2000-01-15"
  *               status:
  *                 type: string
  *                 enum: [active, inactive]
- *                 example: active
  *               belt_id:
  *                 type: integer
- *                 description: ID sabuk baru dari tabel belts
- *                 example: 3
- *               spesialisasi:
- *                 type: string
- *                 enum: [kyorugi, poomsae, "kyorugi & poomsae"]
- *                 Description: Spesialisasi pelatih (hanya untuk role pelatih)
- *                 example: kyorugi
- *               sertifikasi:
- *                 type: string
- *                 example: "Sertifikasi A"
+ *                 description: ID sabuk baru (dari tabel belts)
  *               belt_achieved_at:
  *                 type: string
  *                 format: date
- *                 description: Tanggal pencapaian sabuk (opsional, default hari ini)
- *                 example: "2025-05-01"
+ *                 description: Tanggal pencapaian sabuk (opsional)
+ *               spesialisasi:
+ *                 type: string
+ *                 enum: [kyorugi, poomsae, keduanya, all, "kyourigi & poomsae"]
+ *                 description: Hanya untuk pelatih
+ *               bio:
+ *                 type: string
+ *                 description: Biografi pelatih (hanya untuk pelatih)
+ *               sertifikasi:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - id
+ *                     - nama
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       description: ID sertifikasi yang akan diedit
+ *                     nama:
+ *                       type: string
+ *                       description: Nama baru sertifikasi
+ *                 description: Daftar sertifikasi yang akan diedit (bisa satu atau lebih, berdasarkan ID)
+ *                 example: [{ id: 5, nama: "Sertifikasi Nasional Level 2" }]
  *           examples:
  *             updateBiasa:
- *               summary: Update data profil saja
+ *               summary: Update data profil biasa
  *               value:
- *                 name: John Doe
- *                 email: john@example.com
- *                 phone: "081234567890"
- *                 tanggal_lahir: "2000-01-15"
- *                 status: active
+ *                 name: "John Doe"
+ *                 email: "john@example.com"
+ *                 status: "active"
  *             updateSabuk:
  *               summary: Update sabuk saja
  *               value:
  *                 belt_id: 3
  *                 belt_achieved_at: "2025-05-01"
- *             updatePelatih:
- *               summary: Update data pelatih
+ *             updatePelatihEditSertifikasi:
+ *               summary: Edit satu sertifikasi pelatih berdasarkan ID
  *               value:
- *                 spesialisasi: kyorugi
- *                 sertifikasi: "Sertifikasi A"
- *             updateKeduanya:
- *               summary: Update profil sekaligus sabuk
+ *                 spesialisasi: "kyorugi"
+ *                 sertifikasi: [{ id: 5, nama: "Sertifikasi yang sudah diperbarui" }]
+ *             updatePelatihMultipleSertifikasi:
+ *               summary: Edit beberapa sertifikasi sekaligus
  *               value:
- *                 name: John Doe
- *                 status: active
- *                 belt_id: 3
- *                 belt_achieved_at: "2025-05-01"
+ *                 sertifikasi: [
+ *                   { id: 5, nama: "Nama baru untuk sertif 5" },
+ *                   { id: 7, nama: "Nama baru untuk sertif 7" }
+ *                 ]
  *     responses:
  *       200:
  *         description: User berhasil diperbarui
  *         content:
  *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
  *             examples:
- *               tanpaSabuk:
- *                 summary: Response tanpa update sabuk
+ *               responsePelatih:
  *                 value:
- *                   message: User berhasil diperbarui
+ *                   message: "User berhasil diperbarui"
  *                   data:
- *                     id: 1
- *                     name: John Doe
- *                     email: john@example.com
- *                     phone: "081234567890"
- *                     tanggal_lahir: "2000-01-15"
- *                     tahun_lahir: 2000
- *                     status: active
- *               denganSabuk:
- *                 summary: Response dengan update sabuk
- *                 value:
- *                   message: User berhasil diperbarui
- *                   data:
- *                     id: 1
- *                     name: John Doe
- *                     email: john@example.com
- *                     phone: "081234567890"
- *                     tanggal_lahir: "2000-01-15"
- *                     tahun_lahir: 2000
- *                     status: active
- *                     sabuk_saat_ini:
- *                       id: 3
- *                       name: Kuning Strip Hijau
+ *                     id: 2
+ *                     name: "Pelatih Satu"
+ *                     status: "active"
+ *                     pelatih:
+ *                       spesialisasi: "kyorugi"
+ *                       bio: null
+ *                       sertifikasi: [{ id: 5, nama: "Sertifikasi yang sudah diperbarui" }, { id: 7, nama: "Sertifikasi lain" }]
  *       400:
- *         description: Validasi gagal
- *         content:
- *           application/json:
- *             examples:
- *               idKosong:
- *                 value:
- *                   message: ID user wajib diisi
- *               fieldKosong:
- *                 value:
- *                   message: Minimal satu field harus diupdate
- *               emailSudahAda:
- *                 value:
- *                   message: Email sudah digunakan
- *               statusTidakValid:
- *                 value:
- *                   message: Status tidak valid
- *               tanggalTidakValid:
- *                 value:
- *                   message: Format tanggal lahir tidak valid
- *               sabukTidakDitemukan:
- *                 value:
- *                   message: Sabuk tidak ditemukan
+ *         description: Validasi gagal (misal ID sertifikasi tidak valid atau bukan milik pelatih)
  *       404:
  *         description: User tidak ditemukan
- *         content:
- *           application/json:
- *             example:
- *               message: User tidak ditemukan
  *       500:
- *         description: Terjadi kesalahan pada server
- *         content:
- *           application/json:
- *             example:
- *               message: Terjadi kesalahan pada server
+ *         description: Kesalahan server
  */
 router.patch("/update/user/:id", updateUser);
 

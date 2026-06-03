@@ -6,6 +6,7 @@ const app = express();
 
 const adminRouter = require("./routes/adminRoutes");
 const latihanRouter = require("./routes/admin/latihanWajibRoutes");
+const sertifikasiRouter = require("./routes/admin/sertifikasiRoutes");
 const authRouter = require("./routes/authRoutes");
 const publicRouter = require("./routes/publicRoutes");
 const swaggerUi = require("swagger-ui-express");
@@ -29,6 +30,7 @@ app.get("/", (req, res) => {
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 app.use("/api/admin", adminRouter);
 app.use("/api/admin", latihanRouter);
+app.use("/api/admin", sertifikasiRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/public", publicRouter);
 

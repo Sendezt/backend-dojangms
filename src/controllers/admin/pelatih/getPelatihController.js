@@ -1,4 +1,4 @@
-// src\controllers\admin\pelatih\getPelatihController.js
+// src/controllers/admin/pelatih/getAllPelatihWithSummary.js
 const db = require("../../../config/database");
 
 exports.getAllPelatih = async (req, res) => {
@@ -6,36 +6,33 @@ exports.getAllPelatih = async (req, res) => {
 
   try {
     const allowedLimits = [10, 25, 50, 75, 100, 200];
-    const allowedStatuses = ["active", "inactive", "suspended"];
+    const allowedStatuses = ["active", "inactive"];
 
-    // query params
+    // Query params
     let page = parseInt(req.query.page) || 1;
     let limit = parseInt(req.query.limit) || 10;
-    const search = req.query.search?.trim() || null; // "budi" / null
-    const status = req.query.status?.trim() || null; // "active" / "inactive" / "suspended" / null
+    const search = req.query.search?.trim() || null;
+    const status = req.query.status?.trim() || null;
 
     if (!allowedLimits.includes(limit)) limit = 10;
     if (page < 1) page = 1;
 
     const offset = (page - 1) * limit;
-
-    // validasi status
     const filteredStatus = allowedStatuses.includes(status) ? status : null;
 
-    // bangun WHERE clause dinamis
-    // Kondisi dasar: harus punya role 'pelatih'
+    // =====================================================
+    // WHERE CLAUSE UNTUK PELATIH
+    // =====================================================
     const whereClauses = [
       "EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = u.id AND r.name = 'pelatih')",
     ];
     const whereParams = [];
 
-    // Filter status (kalau tidak ada, default tampil semua status)
     if (filteredStatus) {
       whereClauses.push("u.status = ?");
       whereParams.push(filteredStatus);
     }
 
-    // Filter search (cari di name, email, phone)
     if (search) {
       whereClauses.push("(u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)");
       const like = `%${search}%`;
@@ -44,148 +41,132 @@ exports.getAllPelatih = async (req, res) => {
 
     const whereSQL = "WHERE " + whereClauses.join(" AND ");
 
-    // ============================================
-    // 1. TOTAL DATA (pakai WHERE yang sama)
-    // ============================================
+    // =====================================================
+    // 1️⃣ SUMMARY TOTAL PELATIH (TIDAK TERPENGARUH FILTER)
+    // =====================================================
+    const [[summary]] = await conn.query(`
+      SELECT
+        COUNT(DISTINCT u.id) AS total_pelatih,
+        SUM(CASE WHEN u.status = 'active' THEN 1 ELSE 0 END) AS total_pelatih_active,
+        SUM(CASE WHEN u.status = 'inactive' THEN 1 ELSE 0 END) AS total_pelatih_inactive
+      FROM users u
+      JOIN user_roles ur ON ur.user_id = u.id
+      JOIN roles r ON r.id = ur.role_id
+      WHERE r.name = 'pelatih'
+    `);
+
+    // =====================================================
+    // 2️⃣ SUMMARY BELT PELATIH (TIDAK TERPENGARUH FILTER)
+    // =====================================================
+    const [beltSummary] = await conn.query(`
+      SELECT 
+        b.name AS belt_name,
+        COUNT(DISTINCT u.id) AS total
+      FROM users u
+      JOIN user_roles ur ON ur.user_id = u.id
+      JOIN roles r ON r.id = ur.role_id
+      JOIN user_belts ub ON ub.user_id = u.id AND ub.is_current = true
+      JOIN belts b ON b.id = ub.belt_id
+      WHERE r.name = 'pelatih'
+      GROUP BY b.id
+      ORDER BY b.order_level ASC
+    `);
+
+    const beltCounts = {};
+    beltSummary.forEach((belt) => {
+      beltCounts[belt.belt_name] = belt.total;
+    });
+
+    // =====================================================
+    // 3️⃣ TOTAL DATA PAGINATION (TERPENGARUH FILTER)
+    // =====================================================
     const [[totalData]] = await conn.query(
-      `SELECT COUNT(DISTINCT u.id) AS total
-       FROM users u
-       ${whereSQL}`,
+      `
+      SELECT COUNT(DISTINCT u.id) AS total
+      FROM users u
+      ${whereSQL}
+      `,
       whereParams,
     );
 
     const total = totalData.total;
     const totalPage = Math.max(Math.ceil(total / limit), 1);
 
-    // ============================================
-    // 2. AMBIL DATA PELATIH
-    // ============================================
+    // =====================================================
+    // 4️⃣ DATA PELATIH (TERPENGARUH FILTER)
+    // =====================================================
     const [rows] = await conn.query(
-      `SELECT
-         u.id,
-         u.name,
-         u.email,
-         u.phone,
-         u.foto,
-         u.jenis_kelamin,
-         u.alamat,
-         u.tanggal_lahir,
-         u.status,
-         u.created_at,
-         p.spesialisasi,
-         p.sertifikasi,
-         b.id   AS belt_id,
-         b.name AS belt_name
-       FROM users u
-       LEFT JOIN pelatih p     ON p.user_id = u.id
-       LEFT JOIN user_belts ub ON ub.user_id = u.id AND ub.is_current = 1
-       LEFT JOIN belts b       ON b.id = ub.belt_id
-       ${whereSQL}
-       ORDER BY u.name ASC
-       LIMIT ? OFFSET ?`,
+      `
+      SELECT 
+        u.id,
+        u.name,
+        u.email,
+        u.phone,
+        u.foto,
+        u.jenis_kelamin,
+        u.alamat,
+        u.tanggal_lahir,
+        u.status,
+        u.created_at,
+        u.updated_at,
+        p.spesialisasi,
+        p.bio,
+        b.id AS belt_id,
+        b.name AS current_belt,
+        ub.achieved_at AS belt_achieved_at
+      FROM users u
+      LEFT JOIN pelatih p ON p.user_id = u.id
+      LEFT JOIN user_belts ub ON ub.user_id = u.id AND ub.is_current = true
+      LEFT JOIN belts b ON b.id = ub.belt_id
+      ${whereSQL}
+      ORDER BY u.created_at DESC
+      LIMIT ? OFFSET ?
+      `,
       [...whereParams, limit, offset],
     );
 
-    // ============================================
-    // 3. AMBIL KELAS & JADWAL PER PELATIH
-    // ============================================
-    let kelasMap = {};
+    // =====================================================
+    // 5️⃣ FORMAT DATA (opsional, bisa langsung kirim rows)
+    // =====================================================
+    const data = rows.map((pelatih) => ({
+      id: pelatih.id,
+      name: pelatih.name,
+      email: pelatih.email,
+      phone: pelatih.phone,
+      foto: pelatih.foto,
+      jenis_kelamin: pelatih.jenis_kelamin,
+      alamat: pelatih.alamat,
+      tanggal_lahir: pelatih.tanggal_lahir,
+      status: pelatih.status,
+      tanggal_bergabung: pelatih.created_at,
+      updated_at: pelatih.updated_at,
+      pelatih: {
+        spesialisasi: pelatih.spesialisasi,
+        bio: pelatih.bio,
+      },
+      sabuk_saat_ini: pelatih.belt_id
+        ? {
+            id: pelatih.belt_id,
+            name: pelatih.current_belt,
+            achieved_at: pelatih.belt_achieved_at,
+          }
+        : null,
+    }));
 
-    if (rows.length > 0) {
-      const pelatihIds = rows.map((r) => r.id);
-
-      const [kelasList] = await conn.query(
-        `SELECT
-           k.id          AS kelas_id,
-           k.nama        AS kelas_nama,
-           k.status      AS kelas_status,
-           kp.user_id    AS pelatih_id,
-           j.hari,
-           j.jam_mulai,
-           j.jam_selesai,
-           j.lokasi,
-           COUNT(DISTINCT km.user_id) AS jumlah_murid
-         FROM kelas_pelatih kp
-         JOIN kelas k       ON k.id = kp.kelas_id
-         LEFT JOIN jadwal_kelas j  ON j.kelas_id = k.id
-         LEFT JOIN kelas_murid km  ON km.kelas_id = k.id AND km.status = 'aktif'
-         WHERE kp.user_id IN (?)
-           AND k.status = 'aktif'
-         GROUP BY
-           k.id, k.nama, k.status, kp.user_id,
-           j.id, j.hari, j.jam_mulai, j.jam_selesai, j.lokasi`,
-        [pelatihIds],
-      );
-
-      for (const row of kelasList) {
-        const pid = row.pelatih_id;
-        if (!kelasMap[pid]) kelasMap[pid] = {};
-
-        if (!kelasMap[pid][row.kelas_id]) {
-          kelasMap[pid][row.kelas_id] = {
-            id: row.kelas_id,
-            nama: row.kelas_nama,
-            status: row.kelas_status,
-            jumlah_murid: row.jumlah_murid,
-            jadwal: [],
-          };
-        }
-
-        if (row.hari) {
-          kelasMap[pid][row.kelas_id].jadwal.push({
-            hari: row.hari,
-            jam_mulai: row.jam_mulai,
-            jam_selesai: row.jam_selesai,
-            lokasi: row.lokasi,
-          });
-        }
-      }
-    }
-
-    // ============================================
-    // 4. FORMAT DATA
-    // ============================================
-    const data = rows.map((pelatih) => {
-      const kelasDiampu = kelasMap[pelatih.id]
-        ? Object.values(kelasMap[pelatih.id])
-        : [];
-
-      const totalMurid = kelasDiampu.reduce(
-        (sum, k) => sum + (k.jumlah_murid || 0),
-        0,
-      );
-
-      return {
-        id: pelatih.id,
-        name: pelatih.name,
-        email: pelatih.email,
-        phone: pelatih.phone,
-        foto: pelatih.foto,
-        jenis_kelamin: pelatih.jenis_kelamin,
-        alamat: pelatih.alamat,
-        tanggal_lahir: pelatih.tanggal_lahir,
-        tanggal_bergabung: pelatih.created_at,
-        status: pelatih.status,
-        pelatih: {
-          spesialisasi: pelatih.spesialisasi,
-          sertifikasi: pelatih.sertifikasi,
-        },
-        sabuk_saat_ini: pelatih.belt_id
-          ? { id: pelatih.belt_id, name: pelatih.belt_name }
-          : null,
-        kelas_diampu: kelasDiampu,
-        total_murid: totalMurid,
-      };
-    });
-
-    // ============================================
-    // 5. RESPONSE
-    // ============================================
+    // =====================================================
+    // RESPONSE
+    // =====================================================
     return res.status(200).json({
       message:
         data.length === 0
           ? "Data pelatih masih kosong"
           : "Berhasil mengambil data pelatih",
+      summary: {
+        total_pelatih: summary.total_pelatih || 0,
+        total_pelatih_active: String(summary.total_pelatih_active || 0),
+        total_pelatih_inactive: String(summary.total_pelatih_inactive || 0),
+        total_per_belt: beltCounts,
+      },
       pagination: {
         page,
         limit,
@@ -194,9 +175,10 @@ exports.getAllPelatih = async (req, res) => {
         has_next: page < totalPage,
         has_prev: page > 1,
       },
-      data,
+      data: data,
     });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({
       message: "Gagal mengambil data pelatih",
       error: error.message,

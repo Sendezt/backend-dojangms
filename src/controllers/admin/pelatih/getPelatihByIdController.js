@@ -11,7 +11,7 @@ exports.getPelatihById = async (req, res) => {
     }
 
     // ============================================
-    // 1. AMBIL DATA PELATIH (BY ID)
+    // 1. AMBIL DATA PELATIH (BY ID) - TANPA FILTER STATUS
     // ============================================
     const [[row]] = await conn.query(
       `
@@ -27,8 +27,9 @@ exports.getPelatihById = async (req, res) => {
         u.status,
         u.created_at,
         u.updated_at,
+        p.id AS pelatih_table_id,
         p.spesialisasi,
-        p.sertifikasi,
+        p.bio,
         b.id   AS belt_id,
         b.name AS belt_name
       FROM users u
@@ -38,7 +39,6 @@ exports.getPelatihById = async (req, res) => {
       LEFT JOIN user_belts ub ON ub.user_id = u.id AND ub.is_current = 1
       LEFT JOIN belts b       ON b.id = ub.belt_id
       WHERE u.id = ?
-        AND u.status = 'active'
       LIMIT 1
       `,
       [pelatihId],
@@ -51,7 +51,25 @@ exports.getPelatihById = async (req, res) => {
     }
 
     // ============================================
-    // 2. AMBIL KELAS & JADWAL PELATIH INI
+    // 2. AMBIL SERTIFIKASI (JIKA ADA pelatih_table_id)
+    // ============================================
+    let sertifikasiList = [];
+    if (row.pelatih_table_id) {
+      const [sertifikasiRows] = await conn.query(
+        `SELECT id, nama_sertifikasi
+         FROM sertifikasi_pelatih
+         WHERE pelatih_id = ?
+         ORDER BY id ASC`,
+        [row.pelatih_table_id],
+      );
+      sertifikasiList = sertifikasiRows.map((s) => ({
+        id: s.id,
+        nama: s.nama_sertifikasi,
+      }));
+    }
+
+    // ============================================
+    // 3. AMBIL KELAS & JADWAL PELATIH INI
     // ============================================
     const [kelasList] = await conn.query(
       `
@@ -103,14 +121,13 @@ exports.getPelatihById = async (req, res) => {
     }
 
     const kelasDiampu = Object.values(kelasMap);
-
     const totalMurid = kelasDiampu.reduce(
       (sum, k) => sum + (k.jumlah_murid || 0),
       0,
     );
 
     // ============================================
-    // 3. FORMAT RESPONSE
+    // 4. FORMAT RESPONSE
     // ============================================
     const data = {
       id: row.id,
@@ -122,11 +139,12 @@ exports.getPelatihById = async (req, res) => {
       alamat: row.alamat,
       tanggal_lahir: row.tanggal_lahir,
       tanggal_bergabung: row.created_at,
-      status: row.status,
+      status: row.status, // bisa 'active' atau 'inactive'
       updated_at: row.updated_at,
       pelatih: {
         spesialisasi: row.spesialisasi,
-        sertifikasi: row.sertifikasi,
+        bio: row.bio,
+        sertifikasi: sertifikasiList,
       },
       sabuk_saat_ini: row.belt_id
         ? { id: row.belt_id, name: row.belt_name }
@@ -140,6 +158,7 @@ exports.getPelatihById = async (req, res) => {
       data,
     });
   } catch (error) {
+    console.error(error);
     return res.status(500).json({
       message: "Gagal mengambil detail pelatih",
       error: error.message,
