@@ -4,6 +4,7 @@ const path = require("path");
 require("dotenv").config();
 const app = express();
 
+const kelolaJadwalRouter = require("./routes/admin/jadwalRoutes");
 const kelolaKelasRouter = require("./routes/admin/kelasRoutes");
 const kelolaAdminRouter = require("./routes/admin/adminRoutes");
 const adminRouter = require("./routes/adminRoutes");
@@ -30,10 +31,12 @@ app.get("/", (req, res) => {
 
 // Routes
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// Admin routes
 app.use("/api/admin", adminRouter);
 app.use("/api/admin", latihanRouter);
 app.use("/api/admin", sertifikasiRouter);
 app.use("/api/admin", kelolaAdminRouter);
+app.use("/api/admin", kelolaJadwalRouter);
 app.use("/api/admin", kelolaKelasRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/public", publicRouter);
