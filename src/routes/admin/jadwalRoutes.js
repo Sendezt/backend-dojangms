@@ -17,6 +17,22 @@ const {
   softDeleteJadwal,
 } = require("../../controllers/admin/jadwal/softDeleteJadwalController");
 
+const {
+  addLiburJadwal,
+} = require("../../controllers/admin/jadwal/addJadwalLiburController");
+const {
+  deleteLiburJadwal,
+} = require("../../controllers/admin/jadwal/deleteJadwalLiburController");
+const {
+  getLiburJadwal,
+} = require("../../controllers/admin/jadwal/getJadwalLiburController");
+const {
+  getAllLibur,
+} = require("../../controllers/admin/jadwal/getAllJadwalLiburController");
+const {
+  bulkAddLiburJadwal,
+} = require("../../controllers/admin/jadwal/addJadwalLiburBulkController");
+
 /**
  * @swagger
  * /api/admin/jadwal/create:
@@ -459,5 +475,299 @@ router.patch("/jadwal/update/:id", verifyToken, updateJadwal);
  *         description: Kesalahan server
  */
 router.patch("/jadwal/softdelete/:id", verifyToken, softDeleteJadwal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/libur/all:
+ *   get:
+ *     summary: Dapatkan semua hari libur dari semua jadwal (dengan filter & pagination)
+ *     tags: [Admin - Jadwal Libur]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, enum: [10,25,50,75,100,200], default: 10 }
+ *       - in: query
+ *         name: jadwal_id
+ *         schema: { type: integer }
+ *         description: Filter berdasarkan ID jadwal
+ *       - in: query
+ *         name: tanggal_start
+ *         schema: { type: string, format: date }
+ *         description: Filter tanggal mulai (YYYY-MM-DD)
+ *       - in: query
+ *         name: tanggal_end
+ *         schema: { type: string, format: date }
+ *         description: Filter tanggal akhir (YYYY-MM-DD)
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string }
+ *                 pagination:
+ *                   type: object
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id: { type: integer }
+ *                       jadwal_id: { type: integer }
+ *                       tanggal: { type: string, format: date }
+ *                       keterangan: { type: string, nullable: true }
+ *                       created_at: { type: string, format: date-time }
+ *                       jadwal_nama: { type: string }
+ *                       jadwal_tipe: { type: string }
+ *       400: { description: Parameter tidak valid }
+ *       401: { description: Unauthorized }
+ *       403: { description: Forbidden }
+ *       500: { description: Server error }
+ */
+router.get("/jadwal/libur/all", getAllLibur);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/{id}/libur:
+ *   post:
+ *     summary: Tambah hari libur untuk suatu jadwal (pengecualian)
+ *     tags: [Admin - Jadwal Libur]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tanggal
+ *             properties:
+ *               tanggal:
+ *                 type: string
+ *                 format: date
+ *               keterangan:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Libur berhasil ditambahkan
+ *       400: { description: Parameter tidak valid }
+ *       409: { description: Tanggal sudah menjadi libur }
+ *       404: { description: Jadwal tidak ditemukan }
+ */
+router.post("/jadwal/:id/libur", verifyToken, addLiburJadwal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/{id}/libur/bulk:
+ *   post:
+ *     summary: Tambah beberapa hari libur sekaligus untuk suatu jadwal
+ *     tags: [Admin - Jadwal Libur]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID jadwal
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tanggal_list
+ *             properties:
+ *               tanggal_list:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: date
+ *                 description: Array tanggal libur (format YYYY-MM-DD)
+ *                 example: ["2026-07-04", "2026-07-05"]
+ *               keterangan:
+ *                 type: string
+ *                 description: Keterangan libur (opsional, berlaku untuk semua tanggal)
+ *                 example: "Libur Nasional"
+ *     responses:
+ *       201:
+ *         description: Sebagian atau semua tanggal berhasil ditambahkan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     total_requested:
+ *                       type: integer
+ *                     total_success:
+ *                       type: integer
+ *                     total_failed:
+ *                       type: integer
+ *                 details:
+ *                   type: object
+ *                   properties:
+ *                     success:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           jadwal_id:
+ *                             type: integer
+ *                           tanggal:
+ *                             type: string
+ *                             format: date
+ *                           keterangan:
+ *                             type: string
+ *                           created_at:
+ *                             type: string
+ *                             format: date-time
+ *                     failed:
+ *                       type: object
+ *                       properties:
+ *                         invalid_format:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                         already_exist:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *       400:
+ *         description: Input tidak valid (ID jadwal salah, tanggal_list bukan array kosong, format tanggal salah)
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Jadwal tidak ditemukan
+ *       409:
+ *         description: Semua tanggal sudah menjadi libur
+ *       500:
+ *         description: Kesalahan server
+ */
+router.post("/jadwal/:id/libur/bulk", verifyToken, bulkAddLiburJadwal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/{id}/libur/{tanggal}:
+ *   delete:
+ *     summary: Hapus satu hari libur dari suatu jadwal berdasarkan tanggal
+ *     tags: [Admin - Jadwal Libur]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID jadwal
+ *       - in: path
+ *         name: tanggal
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Tanggal libur yang akan dihapus (format YYYY-MM-DD)
+ *     responses:
+ *       200:
+ *         description: Hari libur berhasil dihapus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *       400:
+ *         description: Parameter tidak valid (ID jadwal atau format tanggal salah)
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Hari libur tidak ditemukan untuk jadwal tersebut
+ *       500:
+ *         description: Kesalahan server
+ */
+router.delete("/jadwal/:id/libur/:tanggal", verifyToken, deleteLiburJadwal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/{id}/libur:
+ *   get:
+ *     summary: Dapatkan daftar hari libur untuk suatu jadwal
+ *     tags: [Admin - Jadwal Libur]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID jadwal
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil daftar libur
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       jadwal_id:
+ *                         type: integer
+ *                       tanggal:
+ *                         type: string
+ *                         format: date
+ *                       keterangan:
+ *                         type: string
+ *                         nullable: true
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *       400:
+ *         description: ID jadwal tidak valid
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Jadwal tidak ditemukan (atau tidak ada libur, namun tetap 200 dengan array kosong)
+ *       500:
+ *         description: Kesalahan server
+ */
+router.get("/jadwal/:id/libur", verifyToken, getLiburJadwal);
 
 module.exports = router;
