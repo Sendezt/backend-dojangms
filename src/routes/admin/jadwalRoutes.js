@@ -33,6 +33,22 @@ const {
   bulkAddLiburJadwal,
 } = require("../../controllers/admin/jadwal/addJadwalLiburBulkController");
 
+const {
+  createLiburGlobal,
+} = require("../../controllers/admin/jadwal/createLiburGlobalController");
+const {
+  bulkCreateLiburGlobal,
+} = require("../../controllers/admin/jadwal/createLiburGlobalBulkController");
+const {
+  getAllLiburGlobal,
+} = require("../../controllers/admin/jadwal/getAllLiburGlobalController");
+const {
+  updateLiburGlobal,
+} = require("../../controllers/admin/jadwal/updateLiburGlobalController");
+const {
+  deleteLiburGlobal,
+} = require("../../controllers/admin/jadwal/deleteLiburGlobalController");
+
 /**
  * @swagger
  * /api/admin/jadwal/create:
@@ -769,5 +785,317 @@ router.delete("/jadwal/:id/libur/:tanggal", verifyToken, deleteLiburJadwal);
  *         description: Kesalahan server
  */
 router.get("/jadwal/:id/libur", verifyToken, getLiburJadwal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/libur-global:
+ *   post:
+ *     summary: Tambah satu libur global
+ *     tags: [Admin - Jadwal Libur Global]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - tanggal
+ *             properties:
+ *               tanggal:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-08-17"
+ *               keterangan:
+ *                 type: string
+ *                 example: "Hari Kemerdekaan"
+ *     responses:
+ *       201:
+ *         description: Libur global berhasil ditambahkan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     tanggal:
+ *                       type: string
+ *                       format: date
+ *                     keterangan:
+ *                       type: string
+ *                       nullable: true
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: Tanggal tidak valid
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       409:
+ *         description: Tanggal sudah terdaftar
+ *       500:
+ *         description: Server error
+ */
+router.post("/jadwal/libur-global", verifyToken, createLiburGlobal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/libur-global/bulk:
+ *   post:
+ *     summary: Tambah banyak libur global sekaligus
+ *     tags: [Admin - Jadwal Libur Global]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - items
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - tanggal
+ *                   properties:
+ *                     tanggal:
+ *                       type: string
+ *                       format: date
+ *                     keterangan:
+ *                       type: string
+ *                 example:
+ *                   - tanggal: "2026-08-17"
+ *                     keterangan: "Hari Kemerdekaan"
+ *                   - tanggal: "2026-12-25"
+ *                     keterangan: "Natal"
+ *     responses:
+ *       201:
+ *         description: Berhasil menambahkan sebagian atau seluruh libur
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 summary:
+ *                   type: object
+ *                 details:
+ *                   type: object
+ *       400:
+ *         description: Input tidak valid
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       409:
+ *         description: Semua tanggal sudah terdaftar
+ *       500:
+ *         description: Server error
+ */
+router.post("/jadwal/libur-global/bulk", verifyToken, bulkCreateLiburGlobal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/libur-global/get:
+ *   get:
+ *     summary: Dapatkan daftar semua libur global (dengan filter tanggal & pagination)
+ *     tags: [Admin - Jadwal Libur Global]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, enum: [10,25,50,75,100,200], default: 10 }
+ *       - in: query
+ *         name: tanggal_start
+ *         schema: { type: string, format: date }
+ *         description: Filter tanggal mulai (YYYY-MM-DD)
+ *       - in: query
+ *         name: tanggal_end
+ *         schema: { type: string, format: date }
+ *         description: Filter tanggal akhir (YYYY-MM-DD)
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 pagination:
+ *                   type: object
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       tanggal:
+ *                         type: string
+ *                         format: date
+ *                       keterangan:
+ *                         type: string
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *       400:
+ *         description: Parameter tidak valid
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get("/jadwal/libur-global/get", getAllLiburGlobal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/libur-global/update/{id}:
+ *   patch:
+ *     summary: Perbarui sebagian atau seluruh data libur global berdasarkan ID
+ *     tags: [Admin - Jadwal Libur Global]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID libur global
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tanggal:
+ *                 type: string
+ *                 format: date
+ *                 description: Tanggal libur baru
+ *                 example: "2026-12-25"
+ *               keterangan:
+ *                 type: string
+ *                 nullable: true
+ *                 description: Keterangan libur
+ *                 example: "Libur Hari Natal"
+ *           examples:
+ *             updateTanggal:
+ *               summary: Ubah tanggal saja
+ *               value:
+ *                 tanggal: "2026-12-25"
+ *             updateKeterangan:
+ *               summary: Ubah keterangan saja
+ *               value:
+ *                 keterangan: "Libur Hari Natal"
+ *             updateKeduanya:
+ *               summary: Ubah tanggal dan keterangan
+ *               value:
+ *                 tanggal: "2026-12-25"
+ *                 keterangan: "Libur Hari Natal"
+ *             hapusKeterangan:
+ *               summary: Hapus keterangan
+ *               value:
+ *                 keterangan: null
+ *     responses:
+ *       200:
+ *         description: Libur global berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Libur global berhasil diperbarui"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     tanggal:
+ *                       type: string
+ *                       format: date
+ *                       example: "2026-12-25"
+ *                     keterangan:
+ *                       type: string
+ *                       nullable: true
+ *                       example: "Libur Hari Natal"
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *       400:
+ *         description: ID tidak valid, format tanggal salah, atau tidak ada field yang dikirim
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Libur global tidak ditemukan
+ *       409:
+ *         description: Tanggal sudah terdaftar sebagai libur global
+ *       500:
+ *         description: Kesalahan server
+ */
+router.patch("/jadwal/libur-global/update/:id", verifyToken, updateLiburGlobal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/libur-global/delete/{id}:
+ *   delete:
+ *     summary: Hapus libur global berdasarkan ID
+ *     tags: [Admin - Jadwal Libur Global]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID libur global
+ *     responses:
+ *       200:
+ *         description: Libur global berhasil dihapus
+ *       400:
+ *         description: ID tidak valid
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Libur global tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.delete(
+  "/jadwal/libur-global/delete/:id",
+  verifyToken,
+  deleteLiburGlobal,
+);
 
 module.exports = router;
