@@ -73,86 +73,76 @@ const {
  *               tipe:
  *                 type: string
  *                 enum: [latihan_wajib, training_camp, kelas]
- *                 description: Jenis jadwal
- *                 example: "kelas"
  *               nama:
  *                 type: string
- *                 description: Nama jadwal (misal "Latihan Kelas A")
- *                 example: "Jadwal Taekwondo Pemula"
  *               kelas_id:
  *                 type: integer
- *                 description: Wajib jika tipe = kelas (ID kelas yang sudah ada)
- *                 example: 1
+ *                 description: Wajib jika tipe = kelas
  *               hari:
  *                 type: string
  *                 enum: [senin, selasa, rabu, kamis, jumat, sabtu, minggu]
- *                 description: Wajib untuk latihan_wajib dan kelas
- *                 example: "senin"
+ *                 description: Wajib untuk latihan_wajib dan kelas recurring
  *               effective_from:
  *                 type: string
  *                 format: date
- *                 description: Wajib untuk latihan_wajib dan kelas (mulai tanggal berlaku)
- *                 example: "2026-06-01"
+ *                 description: Wajib untuk latihan_wajib dan kelas recurring
  *               effective_until:
  *                 type: string
  *                 format: date
- *                 description: Opsional (akhir berlaku, null = tidak terbatas)
- *                 example: "2026-12-31"
+ *                 description: Opsional (akhir berlaku)
  *               tanggal_mulai:
  *                 type: string
  *                 format: date
- *                 description: Wajib untuk training_camp (tanggal mulai camp)
- *                 example: "2026-07-10"
+ *                 description: Wajib untuk training_camp dan kelas one-time (pengganti)
  *               tanggal_selesai:
  *                 type: string
  *                 format: date
- *                 description: Wajib untuk training_camp (tanggal selesai camp)
- *                 example: "2026-07-12"
+ *                 description: Wajib untuk training_camp dan kelas one-time
  *               jam_mulai:
  *                 type: string
  *                 format: time
- *                 description: Waktu mulai (format HH:MM atau HH:MM:SS)
- *                 example: "19:00"
  *               jam_selesai:
  *                 type: string
  *                 format: time
- *                 description: Waktu selesai (harus setelah jam_mulai)
- *                 example: "21:00"
  *               lokasi:
  *                 type: string
- *                 description: Nama lokasi / ruang latihan
- *                 example: "Dojang Utama"
  *               keterangan:
  *                 type: string
- *                 description: Catatan tambahan (opsional)
- *                 example: "Latihan teknik dasar"
  *           examples:
- *             latihan_wajib:
- *               summary: Jadwal latihan wajib (berulang mingguan)
+ *             latihan_wajib_recurring:
+ *               summary: Latihan wajib (berulang mingguan)
  *               value:
  *                 tipe: "latihan_wajib"
  *                 nama: "Latihan Wajib - Senin"
  *                 hari: "senin"
  *                 effective_from: "2026-01-01"
- *                 effective_until: null
  *                 jam_mulai: "19:00"
  *                 jam_selesai: "21:00"
  *                 lokasi: "Dojang Utama"
- *                 keterangan: "Latihan rutin"
- *             kelas:
- *               summary: Jadwal khusus kelas
+ *             kelas_recurring:
+ *               summary: Kelas dengan jadwal mingguan
  *               value:
  *                 tipe: "kelas"
- *                 nama: "Jadwal Kelas Taekwondo Pemula"
+ *                 nama: "Kelas Taekwondo Pemula"
  *                 kelas_id: 1
- *                 hari: "senin"
+ *                 hari: "rabu"
  *                 effective_from: "2026-06-01"
- *                 effective_until: "2026-12-31"
+ *                 jam_mulai: "16:00"
+ *                 jam_selesai: "18:00"
+ *                 lokasi: "GOR Utama"
+ *             kelas_one_time:
+ *               summary: Kelas satu kali (pengganti)
+ *               value:
+ *                 tipe: "kelas"
+ *                 nama: "Pengganti Latihan - Selasa"
+ *                 kelas_id: 1
+ *                 tanggal_mulai: "2026-07-13"
+ *                 tanggal_selesai: "2026-07-13"
  *                 jam_mulai: "16:00"
  *                 jam_selesai: "18:00"
  *                 lokasi: "GOR Utama"
  *             training_camp:
- *               summary: Jadwal training camp (one time)
+ *               summary: Training camp (rentang beberapa hari)
  *               value:
  *                 tipe: "training_camp"
  *                 nama: "Training Camp Nasional"
@@ -161,77 +151,21 @@ const {
  *                 jam_mulai: "08:00"
  *                 jam_selesai: "17:00"
  *                 lokasi: "Bandung"
- *                 keterangan: "Persiapan kejuaraan"
  *     responses:
  *       201:
  *         description: Jadwal berhasil dibuat
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                     tipe:
- *                       type: string
- *                     nama:
- *                       type: string
- *                     kelas_id:
- *                       type: integer
- *                       nullable: true
- *                     hari:
- *                       type: string
- *                       nullable: true
- *                     effective_from:
- *                       type: string
- *                       format: date
- *                       nullable: true
- *                     effective_until:
- *                       type: string
- *                       format: date
- *                       nullable: true
- *                     tanggal_mulai:
- *                       type: string
- *                       format: date
- *                       nullable: true
- *                     tanggal_selesai:
- *                       type: string
- *                       format: date
- *                       nullable: true
- *                     jam_mulai:
- *                       type: string
- *                     jam_selesai:
- *                       type: string
- *                     lokasi:
- *                       type: string
- *                     keterangan:
- *                       type: string
- *                       nullable: true
- *                     status:
- *                       type: string
- *                     created_at:
- *                       type: string
- *                       format: date-time
- *                     updated_at:
- *                       type: string
- *                       format: date-time
  *       400:
- *         description: Validasi gagal (field wajib kosong, format salah, jam tidak urut)
+ *         description: Validasi gagal (field wajib kosong, format salah, atau kombinasi tidak valid)
  *       401:
- *         description: Token tidak valid atau tidak ditemukan
+ *         description: Unauthorized
  *       403:
- *         description: Akses ditolak (bukan admin)
+ *         description: Forbidden
  *       404:
  *         description: Kelas tidak ditemukan (jika tipe kelas)
  *       409:
  *         description: Jadwal bentrok dengan jadwal lain di lokasi yang sama
  *       500:
- *         description: Kesalahan server
+ *         description: Server error
  */
 router.post("/jadwal/create", verifyToken, createJadwal);
 
