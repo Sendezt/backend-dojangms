@@ -66,10 +66,10 @@ const {
 } = require("../controllers/admin/DeleteChampioshipController");
 const {
   getKejuaraanStats5Years,
-} = require("../controllers/admin/kejuaraan/getKejuaraanStats5YearsController");
+} = require("../controllers/admin/getKejuaraanStats5YearsController");
 const {
   getUpcomingKejuaraan3Months,
-} = require("../controllers/admin/kejuaraan/getUpcomingKejuaraan3MonthsController");
+} = require("../controllers/admin/getUpcomingKejuaraan3MonthsController");
 
 // role
 const {

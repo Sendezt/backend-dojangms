@@ -18,7 +18,7 @@ exports.getAllChampionships = async (req, res) => {
     const limit = ALLOWED_LIMITS.includes(requestedLimit) ? requestedLimit : 10;
     const offset = (page - 1) * limit;
 
-    // 🔥 Ambil summary
+    // Ambil summary
     const [[summary]] = await db.execute(
       `
       SELECT

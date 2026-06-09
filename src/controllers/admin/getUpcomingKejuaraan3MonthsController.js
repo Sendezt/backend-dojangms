@@ -1,4 +1,4 @@
-const db = require("../../../config/database");
+const db = require("../../config/database");
 
 exports.getUpcomingKejuaraan3Months = async (req, res) => {
   const conn = await db.getConnection();
