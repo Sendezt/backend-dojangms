@@ -18,6 +18,24 @@ const {
 const {
   updateKejuaraan,
 } = require("../../controllers/admin/kejuaraan/updateKelasKejuaraanController");
+const {
+  createKelasKyorugi,
+} = require("../../controllers/admin/kejuaraan/createKelasKyorugiController");
+const {
+  getKelasKyorugiById,
+} = require("../../controllers/admin/kejuaraan/getKelasKyorugiByIdController");
+const {
+  getAllKelasKyorugi,
+} = require("../../controllers/admin/kejuaraan/getAllKelasKyorugiFilterContoller");
+const {
+  getAllKelasKyorugiSimple,
+} = require("../../controllers/admin/kejuaraan/getAllKelasKyorugiController");
+const {
+  updateKelasKyorugi,
+} = require("../../controllers/admin/kejuaraan/updateKelasKyorugiController");
+const {
+  deleteKelasKyorugi,
+} = require("../../controllers/admin/kejuaraan/deleteKelasKyorugiController");
 
 /**
  * @swagger
@@ -626,5 +644,493 @@ router.get("/kejuaraan/:id", getKejuaraanById);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.post("/kejuaraan/:kejuaraanId/kelas", addKelasKejuaraan);
+
+/**
+ * @swagger
+ * /api/admin/kelas-kyorugi:
+ *   post:
+ *     summary: Tambah kelas pertandingan Kyorugi (master data)
+ *     tags: [Admin - Kejuaraan - Kelas Kyorugi]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - kategori_usia_id
+ *               - level_kelas_id
+ *               - gender
+ *               - label
+ *             properties:
+ *               kategori_usia_id:
+ *                 type: integer
+ *                 description: ID kategori usia (1=Pra-Cadet, 2=Cadet, 3=Junior, 4=Senior)
+ *                 example: 2
+ *               level_kelas_id:
+ *                 type: integer
+ *                 description: ID level kelas (1=festival, 2=pemula, 3=prestasi)
+ *                 example: 2
+ *               gender:
+ *                 type: string
+ *                 enum: [putra, putri]
+ *                 example: "putra"
+ *               label:
+ *                 type: string
+ *                 description: Label kelas berat, harus mengandung angka (contoh under-42)
+ *                 example: "under-42"
+ *               batas_bawah:
+ *                 type: number
+ *                 description: Batas berat minimal (kg), opsional
+ *                 example: 35
+ *               batas_atas:
+ *                 type: number
+ *                 description: Batas berat maksimal (kg), opsional, tidak boleh melebihi angka di label
+ *                 example: 42
+ *     responses:
+ *       201:
+ *         description: Kelas kyorugi berhasil ditambahkan
+ *       400:
+ *         description: Validasi gagal
+ *       409:
+ *         description: Duplikasi data
+ */
+router.post("/kelas-kyorugi", createKelasKyorugi);
+
+/**
+ * @swagger
+ * /api/admin/kelas-kyorugi:
+ *   get:
+ *     summary: Get all kelas kyorugi with pagination and filters
+ *     tags: [Admin - Kejuaraan - Kelas Kyorugi]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Halaman
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10, 25, 50, 75, 100, 200]
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Cari berdasarkan label
+ *         example: "under"
+ *       - in: query
+ *         name: gender
+ *         schema:
+ *           type: string
+ *           enum: [putra, putri]
+ *         description: Filter gender
+ *       - in: query
+ *         name: kategori_usia_id
+ *         schema:
+ *           type: integer
+ *         description: Filter berdasarkan ID kategori usia
+ *         example: 2
+ *       - in: query
+ *         name: level_kelas_id
+ *         schema:
+ *           type: integer
+ *         description: Filter berdasarkan ID level kelas
+ *         example: 2
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data kelas kyorugi
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       gender:
+ *                         type: string
+ *                       label:
+ *                         type: string
+ *                       batas_bawah:
+ *                         type: number
+ *                         nullable: true
+ *                       batas_atas:
+ *                         type: number
+ *                         nullable: true
+ *                       kategori_usia:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                           min_age:
+ *                             type: integer
+ *                           max_age:
+ *                             type: integer
+ *                             nullable: true
+ *                       level_kelas:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                 meta:
+ *                   type: object
+ *                   properties:
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         current_page:
+ *                           type: integer
+ *                         per_page:
+ *                           type: integer
+ *                         total_page:
+ *                           type: integer
+ *                         total_data:
+ *                           type: integer
+ *                         has_next:
+ *                           type: boolean
+ *                         has_prev:
+ *                           type: boolean
+ *       400:
+ *         description: Parameter tidak valid
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak
+ *       500:
+ *         description: Kesalahan server
+ */
+router.get("/kelas-kyorugi", getAllKelasKyorugi);
+
+/**
+ * @swagger
+ * /api/admin/kelas-kyorugi/simple:
+ *   get:
+ *     summary: Get all kelas kyorugi with pagination (no filters)
+ *     tags: [Admin - Kejuaraan - Kelas Kyorugi]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Halaman
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10, 25, 50, 75, 100, 200]
+ *           default: 10
+ *         description: Jumlah data per halaman
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       gender:
+ *                         type: string
+ *                       label:
+ *                         type: string
+ *                       batas_bawah:
+ *                         type: number
+ *                         nullable: true
+ *                       batas_atas:
+ *                         type: number
+ *                         nullable: true
+ *                       kategori_usia:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                           min_age:
+ *                             type: integer
+ *                           max_age:
+ *                             type: integer
+ *                             nullable: true
+ *                       level_kelas:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                 meta:
+ *                   type: object
+ *                   properties:
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         current_page:
+ *                           type: integer
+ *                         per_page:
+ *                           type: integer
+ *                         total_page:
+ *                           type: integer
+ *                         total_data:
+ *                           type: integer
+ *                         has_next:
+ *                           type: boolean
+ *                         has_prev:
+ *                           type: boolean
+ *       400:
+ *         description: Parameter tidak valid
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       500:
+ *         description: Kesalahan server
+ */
+router.get("/kelas-kyorugi/simple", getAllKelasKyorugiSimple);
+
+/**
+ * @swagger
+ * /api/admin/kelas-kyorugi/{id}:
+ *   get:
+ *     summary: Get detail kelas kyorugi by ID
+ *     tags: [Admin - Kejuaraan - Kelas Kyorugi]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas kyorugi
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Detail kelas kyorugi berhasil diambil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     gender:
+ *                       type: string
+ *                       enum: [putra, putri]
+ *                     label:
+ *                       type: string
+ *                     batas_bawah:
+ *                       type: number
+ *                       nullable: true
+ *                     batas_atas:
+ *                       type: number
+ *                       nullable: true
+ *                     kategori_usia:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         nama:
+ *                           type: string
+ *                         min_age:
+ *                           type: integer
+ *                         max_age:
+ *                           type: integer
+ *                           nullable: true
+ *                     level_kelas:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         nama:
+ *                           type: string
+ *             example:
+ *               message: "Detail kelas kyorugi berhasil diambil"
+ *               data:
+ *                 id: 1
+ *                 gender: "putra"
+ *                 label: "under-34"
+ *                 batas_bawah: null
+ *                 batas_atas: 34
+ *                 kategori_usia:
+ *                   id: 2
+ *                   nama: "Cadet"
+ *                   min_age: 12
+ *                   max_age: 14
+ *                 level_kelas:
+ *                   id: 2
+ *                   nama: "pemula"
+ *       400:
+ *         description: ID tidak valid
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Kelas kyorugi tidak ditemukan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.get("/kelas-kyorugi/:id", getKelasKyorugiById);
+
+/**
+ * @swagger
+ * /api/admin/kelas-kyorugi/update/{id}:
+ *   put:
+ *     summary: Update data kelas kyorugi
+ *     tags: [Admin - Kejuaraan - Kelas Kyorugi]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas kyorugi yang akan diupdate
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               kategori_usia_id:
+ *                 type: integer
+ *                 description: ID kategori usia (opsional)
+ *                 example: 2
+ *               level_kelas_id:
+ *                 type: integer
+ *                 description: ID level kelas (opsional)
+ *                 example: 2
+ *               gender:
+ *                 type: string
+ *                 enum: [putra, putri]
+ *                 description: Gender (opsional)
+ *                 example: "putra"
+ *               label:
+ *                 type: string
+ *                 description: Label kelas berat, harus mengandung angka (opsional)
+ *                 example: "under-42"
+ *               batas_bawah:
+ *                 type: number
+ *                 description: Batas berat minimal (kg), opsional, harus diisi bersama batas_atas
+ *                 example: 35
+ *               batas_atas:
+ *                 type: number
+ *                 description: Batas berat maksimal (kg), opsional, tidak boleh melebihi angka di label
+ *                 example: 42
+ *     responses:
+ *       200:
+ *         description: Kelas kyorugi berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   $ref: '#/components/schemas/KelasKyorugiDetail'
+ *       400:
+ *         description: Validasi gagal
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Kelas kyorugi tidak ditemukan / referensi tidak ditemukan
+ *       409:
+ *         description: Duplikasi data dengan record lain
+ *       500:
+ *         description: Kesalahan server
+ */
+router.put("/kelas-kyorugi/update/:id", updateKelasKyorugi);
+
+/**
+ * @swagger
+ * /api/admin/kelas-kyorugi/delete/{id}:
+ *   delete:
+ *     summary: Hapus kelas kyorugi (hanya jika belum digunakan di kejuaraan)
+ *     tags: [Admin - Kejuaraan - Kelas Kyorugi]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas kyorugi yang akan dihapus
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Kelas kyorugi berhasil dihapus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *             example:
+ *               success: true
+ *               message: "Kelas kyorugi under-34 berhasil dihapus"
+ *       400:
+ *         description: ID tidak valid
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Kelas kyorugi tidak ditemukan
+ *       409:
+ *         description: Kelas kyorugi masih digunakan di kelas_kejuaraan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.delete("/kelas-kyorugi/delete/:id", deleteKelasKyorugi);
 
 module.exports = router;

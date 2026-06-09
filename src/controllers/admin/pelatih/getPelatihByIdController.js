@@ -10,9 +10,7 @@ exports.getPelatihById = async (req, res) => {
       return res.status(400).json({ message: "ID pelatih tidak valid" });
     }
 
-    // ============================================
-    // 1. AMBIL DATA PELATIH (BY ID) - TANPA FILTER STATUS
-    // ============================================
+    // 1. Ambil data pelatih (tanpa filter status)
     const [[row]] = await conn.query(
       `
       SELECT
@@ -45,14 +43,10 @@ exports.getPelatihById = async (req, res) => {
     );
 
     if (!row) {
-      return res.status(404).json({
-        message: "Pelatih tidak ditemukan",
-      });
+      return res.status(404).json({ message: "Pelatih tidak ditemukan" });
     }
 
-    // ============================================
-    // 2. AMBIL SERTIFIKASI (JIKA ADA pelatih_table_id)
-    // ============================================
+    // 2. Ambil sertifikasi
     let sertifikasiList = [];
     if (row.pelatih_table_id) {
       const [sertifikasiRows] = await conn.query(
@@ -68,36 +62,34 @@ exports.getPelatihById = async (req, res) => {
       }));
     }
 
-    // ============================================
-    // 3. AMBIL KELAS & JADWAL PELATIH INI
-    // ============================================
+    // 3. Ambil kelas & jadwal pelatih (menggunakan tabel jadwal yang baru)
     const [kelasList] = await conn.query(
       `
-  SELECT
-    k.id          AS kelas_id,
-    k.nama        AS kelas_nama,
-    k.status      AS kelas_status,
-    j.id          AS jadwal_id,
-    j.hari,
-    j.jam_mulai,
-    j.jam_selesai,
-    j.lokasi,
-    COUNT(DISTINCT km.user_id) AS jumlah_murid
-  FROM kelas_pelatih kp
-  JOIN kelas k ON k.id = kp.kelas_id
-  LEFT JOIN jadwal_kelas j ON j.kelas_id = k.id
-  LEFT JOIN kelas_murid km ON km.kelas_id = k.id AND km.status = 'aktif'
-  WHERE kp.user_id = ?
-    AND k.status = 'aktif'
-  GROUP BY
-    k.id, k.nama, k.status,
-    j.id, j.hari, j.jam_mulai, j.jam_selesai, j.lokasi
-  ORDER BY k.nama ASC, j.hari ASC, j.jam_mulai ASC
-  `,
+      SELECT
+        k.id          AS kelas_id,
+        k.nama        AS kelas_nama,
+        k.status      AS kelas_status,
+        j.id          AS jadwal_id,
+        j.hari,
+        j.jam_mulai,
+        j.jam_selesai,
+        j.lokasi,
+        COUNT(DISTINCT km.user_id) AS jumlah_murid
+      FROM kelas_pelatih kp
+      JOIN kelas k ON k.id = kp.kelas_id
+      LEFT JOIN jadwal j ON j.kelas_id = k.id AND j.tipe = 'kelas'
+      LEFT JOIN kelas_murid km ON km.kelas_id = k.id AND km.status = 'aktif'
+      WHERE kp.user_id = ?
+        AND k.status = 'aktif'
+      GROUP BY
+        k.id, k.nama, k.status,
+        j.id, j.hari, j.jam_mulai, j.jam_selesai, j.lokasi
+      ORDER BY k.nama ASC, j.hari ASC, j.jam_mulai ASC
+      `,
       [pelatihId],
     );
 
-    // Susun kelas (gabung jadwal-jadwal per kelas)
+    // Susun kelas (gabung jadwal per kelas)
     const kelasMap = {};
     for (const k of kelasList) {
       if (!kelasMap[k.kelas_id]) {
@@ -109,7 +101,6 @@ exports.getPelatihById = async (req, res) => {
           jadwal: [],
         };
       }
-
       if (k.hari) {
         kelasMap[k.kelas_id].jadwal.push({
           hari: k.hari,
@@ -126,9 +117,7 @@ exports.getPelatihById = async (req, res) => {
       0,
     );
 
-    // ============================================
-    // 4. FORMAT RESPONSE
-    // ============================================
+    // 4. Format response
     const data = {
       id: row.id,
       name: row.name,
@@ -139,7 +128,7 @@ exports.getPelatihById = async (req, res) => {
       alamat: row.alamat,
       tanggal_lahir: row.tanggal_lahir,
       tanggal_bergabung: row.created_at,
-      status: row.status, // bisa 'active' atau 'inactive'
+      status: row.status,
       updated_at: row.updated_at,
       pelatih: {
         spesialisasi: row.spesialisasi,
