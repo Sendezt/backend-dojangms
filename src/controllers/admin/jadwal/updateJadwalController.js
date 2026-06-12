@@ -1,6 +1,6 @@
 const db = require("../../../config/database");
 
-// Helper: cek bentrok recurring (latihan_wajib / kelas) dengan exclude ID
+// Helper: cek bentrok recurring (latihan_wajib / kelas recurring) dengan exclude ID
 async function checkConflictRecurringUpdate(
   conn,
   id,
@@ -56,7 +56,7 @@ async function checkConflictRecurringUpdate(
   return false;
 }
 
-// Helper: cek bentrok training_camp (one-time) dengan exclude ID
+// Helper: cek bentrok one-time (training_camp atau kelas one-time) dengan exclude ID
 async function checkConflictOneTimeUpdate(
   conn,
   id,
@@ -65,10 +65,11 @@ async function checkConflictOneTimeUpdate(
   jam_mulai,
   jam_selesai,
   lokasi,
+  kelas_id = null,
 ) {
-  const sql = `
+  let sql = `
     SELECT id FROM jadwal
-    WHERE tipe = 'training_camp'
+    WHERE (tipe = 'training_camp' OR (tipe = 'kelas' AND hari IS NULL))
       AND lokasi = ?
       AND status = 'aktif'
       AND id != ?
@@ -83,7 +84,7 @@ async function checkConflictOneTimeUpdate(
         (jam_mulai >= ? AND jam_mulai < ?)
       )
   `;
-  const params = [
+  let params = [
     lokasi,
     id,
     tanggal_selesai,
@@ -99,6 +100,10 @@ async function checkConflictOneTimeUpdate(
     jam_mulai,
     jam_selesai,
   ];
+  if (kelas_id !== null) {
+    sql += ` AND kelas_id = ?`;
+    params.push(kelas_id);
+  }
   const [rows] = await conn.query(sql, params);
   return rows.length > 0;
 }
@@ -119,8 +124,8 @@ exports.updateJadwal = async (req, res) => {
       return res.status(404).json({ message: "Jadwal tidak ditemukan" });
     }
     const current = existing[0];
+    const tipe = current.tipe;
 
-    // Body request
     let {
       nama,
       hari,
@@ -128,6 +133,7 @@ exports.updateJadwal = async (req, res) => {
       effective_until,
       tanggal_mulai,
       tanggal_selesai,
+      tanggal,
       jam_mulai,
       jam_selesai,
       lokasi,
@@ -144,6 +150,7 @@ exports.updateJadwal = async (req, res) => {
       "effective_until",
       "tanggal_mulai",
       "tanggal_selesai",
+      "tanggal",
       "jam_mulai",
       "jam_selesai",
       "lokasi",
@@ -160,14 +167,14 @@ exports.updateJadwal = async (req, res) => {
         .json({ message: "Minimal satu field harus diupdate" });
     }
 
-    // Validasi tipe dan field dasar
-    const tipe = current.tipe;
+    // Validasi status
     if (status && !["aktif", "nonaktif"].includes(status)) {
       return res
         .status(400)
         .json({ message: "Status harus 'aktif' atau 'nonaktif'" });
     }
 
+    // Validasi umum
     if (
       nama !== undefined &&
       (typeof nama !== "string" || nama.trim() === "")
@@ -208,8 +215,8 @@ exports.updateJadwal = async (req, res) => {
         .json({ message: "Lokasi harus string tidak kosong" });
     }
 
-    // Validasi khusus per tipe
-    if (tipe === "latihan_wajib" || tipe === "kelas") {
+    // ========== Validasi khusus per tipe ==========
+    if (tipe === "latihan_wajib") {
       if (
         hari !== undefined &&
         ![
@@ -222,14 +229,12 @@ exports.updateJadwal = async (req, res) => {
           "minggu",
         ].includes(hari)
       ) {
-        return res
-          .status(400)
-          .json({ message: "Hari harus valid (senin...minggu)" });
+        return res.status(400).json({ message: "Hari tidak valid" });
       }
       if (effective_from !== undefined && isNaN(Date.parse(effective_from))) {
         return res
           .status(400)
-          .json({ message: "effective_from harus format tanggal valid" });
+          .json({ message: "effective_from format tidak valid" });
       }
       if (
         effective_until !== undefined &&
@@ -238,7 +243,7 @@ exports.updateJadwal = async (req, res) => {
       ) {
         return res
           .status(400)
-          .json({ message: "effective_until harus format tanggal valid" });
+          .json({ message: "effective_until format tidak valid" });
       }
       if (
         effective_from !== undefined &&
@@ -274,8 +279,29 @@ exports.updateJadwal = async (req, res) => {
       }
     }
 
-    // Untuk tipe kelas, validasi kelas_id jika diubah
     if (tipe === "kelas") {
+      // Normalisasi nilai hari: jika "" atau "null" atau null, set jadi null (one-time)
+      let normalizedHari = hari;
+      if (hari === "" || hari === "null") normalizedHari = null;
+
+      // Validasi: jika hari tidak null & tidak undefined, harus enum yang valid
+      if (
+        normalizedHari !== undefined &&
+        normalizedHari !== null &&
+        ![
+          "senin",
+          "selasa",
+          "rabu",
+          "kamis",
+          "jumat",
+          "sabtu",
+          "minggu",
+        ].includes(normalizedHari)
+      ) {
+        return res.status(400).json({ message: "Hari tidak valid" });
+      }
+
+      // Validasi kelas_id
       let finalKelasId = kelas_id !== undefined ? kelas_id : current.kelas_id;
       if (finalKelasId && (isNaN(finalKelasId) || finalKelasId < 1)) {
         return res.status(400).json({ message: "kelas_id tidak valid" });
@@ -288,58 +314,141 @@ exports.updateJadwal = async (req, res) => {
           return res.status(404).json({ message: "Kelas tidak ditemukan" });
         }
       }
+
+      // Validasi one-time vs recurring berdasarkan normalizedHari
+      const isOneTime = normalizedHari === null;
+      if (isOneTime) {
+        // One-time kelas pengganti: wajib ada tanggal (atau tanggal_mulai/tanggal_selesai)
+        if (tanggal !== undefined) {
+          const parsedTanggal = new Date(tanggal);
+          if (isNaN(parsedTanggal.getTime())) {
+            return res
+              .status(400)
+              .json({ message: "Format tanggal tidak valid" });
+          }
+        } else if (
+          tanggal_mulai !== undefined ||
+          tanggal_selesai !== undefined
+        ) {
+          if (tanggal_mulai && isNaN(Date.parse(tanggal_mulai))) {
+            return res
+              .status(400)
+              .json({ message: "tanggal_mulai format tidak valid" });
+          }
+          if (tanggal_selesai && isNaN(Date.parse(tanggal_selesai))) {
+            return res
+              .status(400)
+              .json({ message: "tanggal_selesai format tidak valid" });
+          }
+          if (
+            tanggal_mulai &&
+            tanggal_selesai &&
+            new Date(tanggal_mulai) > new Date(tanggal_selesai)
+          ) {
+            return res
+              .status(400)
+              .json({ message: "tanggal_selesai harus setelah tanggal_mulai" });
+          }
+        } else {
+          return res.status(400).json({
+            message:
+              "Untuk kelas one-time, wajib mengirim field 'tanggal' (atau tanggal_mulai & tanggal_selesai)",
+          });
+        }
+      } else {
+        // Recurring
+        if (effective_from !== undefined && isNaN(Date.parse(effective_from))) {
+          return res
+            .status(400)
+            .json({ message: "effective_from format tidak valid" });
+        }
+        if (
+          effective_until !== undefined &&
+          effective_until !== null &&
+          isNaN(Date.parse(effective_until))
+        ) {
+          return res
+            .status(400)
+            .json({ message: "effective_until format tidak valid" });
+        }
+        if (
+          effective_from !== undefined &&
+          effective_until !== undefined &&
+          effective_until &&
+          new Date(effective_until) < new Date(effective_from)
+        ) {
+          return res
+            .status(400)
+            .json({ message: "effective_until harus setelah effective_from" });
+        }
+      }
     }
 
-    // Siapkan nilai final untuk update (gunakan current jika tidak diubah)
+    // ========== Siapkan final values ==========
     const finalNama = nama !== undefined ? nama.trim() : current.nama;
-    const finalHari =
-      tipe === "latihan_wajib" || tipe === "kelas"
-        ? hari !== undefined
-          ? hari
-          : current.hari
-        : null;
-    const finalEffectiveFrom =
-      tipe === "latihan_wajib" || tipe === "kelas"
-        ? effective_from !== undefined
-          ? effective_from
-          : current.effective_from
-        : null;
-    const finalEffectiveUntil =
-      tipe === "latihan_wajib" || tipe === "kelas"
-        ? effective_until !== undefined
-          ? effective_until
-          : current.effective_until
-        : null;
-    const finalTanggalMulai =
-      tipe === "training_camp"
-        ? tanggal_mulai !== undefined
-          ? tanggal_mulai
-          : current.tanggal_mulai
-        : null;
-    const finalTanggalSelesai =
-      tipe === "training_camp"
-        ? tanggal_selesai !== undefined
-          ? tanggal_selesai
-          : current.tanggal_selesai
-        : null;
+    const finalLokasi = lokasi !== undefined ? lokasi.trim() : current.lokasi;
     const finalJamMulai =
       jam_mulai !== undefined ? jam_mulai : current.jam_mulai;
     const finalJamSelesai =
       jam_selesai !== undefined ? jam_selesai : current.jam_selesai;
-    const finalLokasi = lokasi !== undefined ? lokasi.trim() : current.lokasi;
     const finalKeterangan =
       keterangan !== undefined ? keterangan : current.keterangan;
     const finalStatus = status !== undefined ? status : current.status;
-    const finalKelasId =
-      tipe === "kelas"
-        ? kelas_id !== undefined
-          ? kelas_id
-          : current.kelas_id
-        : null;
 
-    // Cek bentrok jadwal (konflik)
+    let finalHari = current.hari;
+    let finalEffectiveFrom = current.effective_from;
+    let finalEffectiveUntil = current.effective_until;
+    let finalTanggalMulai = current.tanggal_mulai;
+    let finalTanggalSelesai = current.tanggal_selesai;
+    let finalKelasId = current.kelas_id;
+
+    if (tipe === "latihan_wajib") {
+      if (hari !== undefined) finalHari = hari;
+      if (effective_from !== undefined) finalEffectiveFrom = effective_from;
+      if (effective_until !== undefined)
+        finalEffectiveUntil = effective_until === "" ? null : effective_until;
+    } else if (tipe === "training_camp") {
+      if (tanggal_mulai !== undefined) finalTanggalMulai = tanggal_mulai;
+      if (tanggal_selesai !== undefined) finalTanggalSelesai = tanggal_selesai;
+    } else if (tipe === "kelas") {
+      let normalizedHari = hari;
+      if (hari === "" || hari === "null") normalizedHari = null;
+      if (normalizedHari !== undefined) finalHari = normalizedHari;
+      if (kelas_id !== undefined)
+        finalKelasId = kelas_id === "" ? null : kelas_id;
+
+      const isOneTime = finalHari === null;
+      if (isOneTime) {
+        // Prioritas: tanggal > tanggal_mulai
+        if (tanggal !== undefined) {
+          finalTanggalMulai = tanggal;
+          finalTanggalSelesai = tanggal;
+        } else if (
+          tanggal_mulai !== undefined ||
+          tanggal_selesai !== undefined
+        ) {
+          finalTanggalMulai =
+            tanggal_mulai !== undefined ? tanggal_mulai : tanggal_selesai;
+          finalTanggalSelesai =
+            tanggal_selesai !== undefined ? tanggal_selesai : tanggal_mulai;
+        }
+        // Untuk one-time, hapus field recurring
+        finalEffectiveFrom = null;
+        finalEffectiveUntil = null;
+      } else {
+        // Recurring
+        if (effective_from !== undefined) finalEffectiveFrom = effective_from;
+        if (effective_until !== undefined)
+          finalEffectiveUntil = effective_until === "" ? null : effective_until;
+        // Hapus field one-time
+        finalTanggalMulai = null;
+        finalTanggalSelesai = null;
+      }
+    }
+
+    // ========== Cek bentrok jadwal ==========
     let isConflict = false;
-    if (tipe === "latihan_wajib" || tipe === "kelas") {
+    if (tipe === "latihan_wajib") {
       isConflict = await checkConflictRecurringUpdate(
         conn,
         id,
@@ -349,7 +458,7 @@ exports.updateJadwal = async (req, res) => {
         finalLokasi,
         finalEffectiveFrom,
         finalEffectiveUntil,
-        tipe === "kelas" ? finalKelasId : null,
+        null,
       );
     } else if (tipe === "training_camp") {
       isConflict = await checkConflictOneTimeUpdate(
@@ -360,34 +469,66 @@ exports.updateJadwal = async (req, res) => {
         finalJamMulai,
         finalJamSelesai,
         finalLokasi,
+        null,
       );
+    } else if (tipe === "kelas") {
+      if (finalHari !== null) {
+        isConflict = await checkConflictRecurringUpdate(
+          conn,
+          id,
+          finalHari,
+          finalJamMulai,
+          finalJamSelesai,
+          finalLokasi,
+          finalEffectiveFrom,
+          finalEffectiveUntil,
+          finalKelasId,
+        );
+      } else {
+        isConflict = await checkConflictOneTimeUpdate(
+          conn,
+          id,
+          finalTanggalMulai,
+          finalTanggalSelesai,
+          finalJamMulai,
+          finalJamSelesai,
+          finalLokasi,
+          finalKelasId,
+        );
+      }
     }
+
     if (isConflict) {
-      return res
-        .status(409)
-        .json({
-          message: "Jadwal bentrok dengan jadwal lain di lokasi yang sama",
-        });
+      return res.status(409).json({
+        message: "Jadwal bentrok dengan jadwal lain di lokasi yang sama",
+      });
     }
 
-    // Lakukan update
-    const updateData = {
-      nama: finalNama,
-      hari: finalHari,
-      effective_from: finalEffectiveFrom,
-      effective_until: finalEffectiveUntil,
-      tanggal_mulai: finalTanggalMulai,
-      tanggal_selesai: finalTanggalSelesai,
-      jam_mulai: finalJamMulai,
-      jam_selesai: finalJamSelesai,
-      lokasi: finalLokasi,
-      keterangan: finalKeterangan === null ? null : finalKeterangan,
-      status: finalStatus,
-      kelas_id: finalKelasId,
-    };
-    await conn.query("UPDATE jadwal SET ? WHERE id = ?", [updateData, id]);
+    // ========== Lakukan update ==========
+    await conn.query(
+      `UPDATE jadwal SET
+        nama = ?, hari = ?, effective_from = ?, effective_until = ?,
+        tanggal_mulai = ?, tanggal_selesai = ?, jam_mulai = ?, jam_selesai = ?,
+        lokasi = ?, keterangan = ?, status = ?, kelas_id = ?
+       WHERE id = ?`,
+      [
+        finalNama,
+        finalHari,
+        finalEffectiveFrom,
+        finalEffectiveUntil,
+        finalTanggalMulai,
+        finalTanggalSelesai,
+        finalJamMulai,
+        finalJamSelesai,
+        finalLokasi,
+        finalKeterangan,
+        finalStatus,
+        finalKelasId,
+        id,
+      ],
+    );
 
-    // Ambil data terbaru (join kelas untuk nama kelas)
+    // Ambil data terbaru
     const [updated] = await conn.query(
       `SELECT j.id, j.tipe, j.nama, j.kelas_id, j.hari, j.effective_from, j.effective_until,
               j.tanggal_mulai, j.tanggal_selesai, j.jam_mulai, j.jam_selesai,

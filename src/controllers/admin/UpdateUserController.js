@@ -1,3 +1,4 @@
+// src\controllers\admin\UpdateUserController.js
 const db = require("../../config/database");
 const bcrypt = require("bcrypt");
 
@@ -33,6 +34,7 @@ exports.updateUser = async (req, res) => {
       status === undefined &&
       tanggal_lahir === undefined &&
       belt_id === undefined &&
+      belt_achieved_at == undefined &&
       spesialisasi === undefined &&
       sertifikasi === undefined &&
       bio === undefined

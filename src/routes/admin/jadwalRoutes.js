@@ -48,6 +48,15 @@ const {
 const {
   deleteLiburGlobal,
 } = require("../../controllers/admin/jadwal/deleteLiburGlobalController");
+const {
+  getDetailLiburJadwal,
+} = require("../../controllers/admin/jadwal/getDetailLiburController");
+const {
+  updateLiburJadwal,
+} = require("../../controllers/admin/jadwal/updateJadwalLiburController");
+const {
+  deleteLiburJadwalById,
+} = require("../../controllers/admin/jadwal/deleteJadwalLiburByIdController");
 
 /**
  * @swagger
@@ -93,11 +102,15 @@ const {
  *               tanggal_mulai:
  *                 type: string
  *                 format: date
- *                 description: Wajib untuk training_camp dan kelas one-time (pengganti)
+ *                 description: Wajib untuk training_camp (rentang mulai)
  *               tanggal_selesai:
  *                 type: string
  *                 format: date
- *                 description: Wajib untuk training_camp dan kelas one-time
+ *                 description: Wajib untuk training_camp (rentang selesai)
+ *               tanggal:
+ *                 type: string
+ *                 format: date
+ *                 description: Wajib untuk kelas one-time (pengganti) - cukup satu tanggal
  *               jam_mulai:
  *                 type: string
  *                 format: time
@@ -131,13 +144,12 @@ const {
  *                 jam_selesai: "18:00"
  *                 lokasi: "GOR Utama"
  *             kelas_one_time:
- *               summary: Kelas satu kali (pengganti)
+ *               summary: Kelas satu kali (pengganti) - cukup kirim tanggal
  *               value:
  *                 tipe: "kelas"
  *                 nama: "Pengganti Latihan - Selasa"
  *                 kelas_id: 1
- *                 tanggal_mulai: "2026-07-13"
- *                 tanggal_selesai: "2026-07-13"
+ *                 tanggal: "2026-07-13"
  *                 jam_mulai: "16:00"
  *                 jam_selesai: "18:00"
  *                 lokasi: "GOR Utama"
@@ -280,6 +292,18 @@ router.get("/jadwal/:id", getJadwalById);
  * /api/admin/jadwal/update/{id}:
  *   patch:
  *     summary: Edit jadwal (partial update) – mendukung semua tipe jadwal (latihan_wajib, training_camp, kelas)
+ *     description: |
+ *       ### Untuk jadwal latihan_wajib (recurring):
+ *       - `hari`, `effective_from`, `effective_until` (optional), `jam_mulai`, `jam_selesai`, `lokasi`, `nama`, `keterangan`, `status`
+ *
+ *       ### Untuk jadwal training_camp (one-time, bisa beberapa hari):
+ *       - `tanggal_mulai`, `tanggal_selesai`, `jam_mulai`, `jam_selesai`, `lokasi`, `nama`, `keterangan`, `status`
+ *
+ *       ### Untuk jadwal kelas:
+ *       - **Recurring** (dengan `hari`): `hari`, `effective_from`, `effective_until`, `jam_mulai`, `jam_selesai`, `lokasi`, `kelas_id`, `nama`, `keterangan`, `status`
+ *       - **One-time (kelas pengganti, hanya 1 hari)**: cukup kirim `tanggal` (satu field) tanpa `hari`. Maka otomatis `tanggal_mulai` dan `tanggal_selesai` akan diisi sama. `jam_mulai`, `jam_selesai`, `lokasi`, `kelas_id` juga bisa diupdate.
+ *
+ *       > **Catatan**: Untuk mengubah jadwal dari recurring ke one-time, kirim `hari = null` beserta `tanggal`. Untuk one-time, `tanggal_mulai` dan `tanggal_selesai` tidak perlu dikirim manual.
  *     tags: [Admin - Jadwal]
  *     security:
  *       - bearerAuth: []
@@ -287,7 +311,8 @@ router.get("/jadwal/:id", getJadwalById);
  *       - in: path
  *         name: id
  *         required: true
- *         schema: { type: integer }
+ *         schema:
+ *           type: integer
  *     requestBody:
  *       required: true
  *       content:
@@ -297,28 +322,31 @@ router.get("/jadwal/:id", getJadwalById);
  *             properties:
  *               nama:
  *                 type: string
- *                 description: Nama jadwal (bisa diubah untuk semua tipe)
  *               hari:
  *                 type: string
+ *                 nullable: true
  *                 enum: [senin, selasa, rabu, kamis, jumat, sabtu, minggu]
- *                 description: Hanya untuk latihan_wajib dan kelas
+ *                 description: Untuk latihan_wajib dan kelas recurring. Kirim `null` untuk mengubah menjadi one-time.
  *               effective_from:
  *                 type: string
  *                 format: date
- *                 description: Hanya untuk latihan_wajib dan kelas
+ *                 description: Untuk latihan_wajib dan kelas recurring
  *               effective_until:
  *                 type: string
  *                 format: date
  *                 nullable: true
- *                 description: Hanya untuk latihan_wajib dan kelas
  *               tanggal_mulai:
  *                 type: string
  *                 format: date
- *                 description: Hanya untuk training_camp
+ *                 description: Hanya untuk training_camp (rentang mulai). Untuk kelas one-time, gunakan `tanggal` saja.
  *               tanggal_selesai:
  *                 type: string
  *                 format: date
- *                 description: Hanya untuk training_camp
+ *                 description: Hanya untuk training_camp (rentang selesai). Untuk kelas one-time, gunakan `tanggal` saja.
+ *               tanggal:
+ *                 type: string
+ *                 format: date
+ *                 description: Untuk kelas one-time (kelas pengganti), cukup 1 tanggal. Otomatis mengisi tanggal_mulai dan tanggal_selesai.
  *               jam_mulai:
  *                 type: string
  *                 format: time
@@ -335,44 +363,50 @@ router.get("/jadwal/:id", getJadwalById);
  *                 enum: [aktif, nonaktif]
  *               kelas_id:
  *                 type: integer
- *                 description: Hanya untuk jadwal tipe kelas (bisa dipindah ke kelas lain)
+ *                 description: Hanya untuk tipe kelas (ID kelas yang diampu)
  *           examples:
  *             updateLatihanWajib:
  *               summary: Update jadwal latihan wajib (recurring)
  *               value:
+ *                 nama: "Latihan Wajib - Rabu Malam"
  *                 hari: "rabu"
  *                 jam_mulai: "20:00"
  *                 jam_selesai: "22:00"
  *                 lokasi: "Dojang Timur"
  *             updateTrainingCamp:
- *               summary: Update jadwal training camp (one-time)
+ *               summary: Update jadwal training camp (one-time, bisa rentang hari)
  *               value:
+ *                 nama: "Training Camp Nasional 2026"
  *                 tanggal_mulai: "2026-08-01"
  *                 tanggal_selesai: "2026-08-03"
  *                 jam_mulai: "09:00"
  *                 jam_selesai: "16:00"
- *             updateKelas:
- *               summary: Update jadwal kelas (misal pindah hari, jam, atau kelas)
+ *                 lokasi: "Bandung"
+ *             updateKelasRecurring:
+ *               summary: Update jadwal kelas recurring (pindah hari, jam, atau kelas)
  *               value:
- *                 nama: "Jadwal Kelas Lanjutan"
+ *                 nama: "Kelas Taekwondo Pemula"
  *                 hari: "jumat"
  *                 jam_mulai: "15:00"
  *                 jam_selesai: "17:00"
  *                 lokasi: "GOR Selatan"
  *                 effective_from: "2026-07-01"
  *                 kelas_id: 2
+ *             updateKelasOneTime:
+ *               summary: Update jadwal kelas one-time (kelas pengganti) - cukup kirim tanggal
+ *               value:
+ *                 nama: "Kelas Pengganti - Hari Raya"
+ *                 hari: null
+ *                 tanggal: "2026-07-15"
+ *                 jam_mulai: "14:00"
+ *                 jam_selesai: "16:00"
+ *                 lokasi: "Dojang Utama"
+ *                 kelas_id: 1
  *     responses:
  *       200:
  *         description: Jadwal berhasil diperbarui
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message: { type: string }
- *                 data: { $ref: '#/components/schemas/Jadwal' }
  *       400:
- *         description: Validasi gagal (field tidak sesuai tipe atau format salah)
+ *         description: Validasi gagal
  *       401:
  *         description: Unauthorized
  *       403:
@@ -485,6 +519,72 @@ router.get("/jadwal/libur/all", getAllLibur);
 
 /**
  * @swagger
+ * /api/admin/jadwal/libur-jadwal/{id}:
+ *   get:
+ *     summary: Dapatkan detail libur jadwal
+ *     tags: [Admin - Jadwal Libur]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID libur jadwal
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil detail libur jadwal
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Berhasil mengambil detail libur jadwal
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 4
+ *                     jadwal_id:
+ *                       type: integer
+ *                       example: 1
+ *                     tanggal:
+ *                       type: string
+ *                       format: date
+ *                       example: 2026-07-04
+ *                     keterangan:
+ *                       type: string
+ *                       nullable: true
+ *                       example: Libur Nasional
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       example: 2026-06-08 01:49:44
+ *                     jadwal_nama:
+ *                       type: string
+ *                       example: Latihan Wajib - Senin
+ *                     jadwal_tipe:
+ *                       type: string
+ *                       example: latihan_wajib
+ *       400:
+ *         description: ID libur jadwal tidak valid
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Data libur jadwal tidak ditemukan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.get("/jadwal/libur-jadwal/:id", getDetailLiburJadwal);
+
+/**
+ * @swagger
  * /api/admin/jadwal/{id}/libur:
  *   post:
  *     summary: Tambah hari libur untuk suatu jadwal (pengecualian)
@@ -518,6 +618,104 @@ router.get("/jadwal/libur/all", getAllLibur);
  *       404: { description: Jadwal tidak ditemukan }
  */
 router.post("/jadwal/:id/libur", verifyToken, addLiburJadwal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/edit/libur/{id}:
+ *   put:
+ *     summary: Update data libur jadwal (tanggal dan/atau keterangan)
+ *     tags: [Admin - Jadwal Libur]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID libur yang akan diupdate
+ *         example: 4
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               tanggal:
+ *                 type: string
+ *                 format: date
+ *                 description: Tanggal libur baru (opsional)
+ *                 example: "2026-08-18"
+ *               keterangan:
+ *                 type: string
+ *                 description: Keterangan libur baru (opsional)
+ *                 example: "Hari Kemerdekaan (diubah)"
+ *           examples:
+ *             updateTanggal:
+ *               summary: Ubah tanggal saja
+ *               value:
+ *                 tanggal: "2026-08-18"
+ *             updateKeterangan:
+ *               summary: Ubah keterangan saja
+ *               value:
+ *                 keterangan: "Libur tambahan"
+ *             updateKeduanya:
+ *               summary: Ubah tanggal dan keterangan
+ *               value:
+ *                 tanggal: "2026-08-19"
+ *                 keterangan: "Hari libur nasional"
+ *     responses:
+ *       200:
+ *         description: Data libur berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     jadwal_id:
+ *                       type: integer
+ *                     tanggal:
+ *                       type: string
+ *                       format: date
+ *                     keterangan:
+ *                       type: string
+ *                       nullable: true
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                     jadwal_nama:
+ *                       type: string
+ *             example:
+ *               message: "Data libur berhasil diperbarui"
+ *               data:
+ *                 id: 4
+ *                 jadwal_id: 1
+ *                 tanggal: "2026-08-18"
+ *                 keterangan: "Hari Kemerdekaan (diubah)"
+ *                 created_at: "2026-06-08 01:49:44"
+ *                 jadwal_nama: "Latihan Wajib - Senin"
+ *       400:
+ *         description: ID tidak valid, format tanggal salah, atau tidak ada field yang diupdate
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Data libur tidak ditemukan
+ *       409:
+ *         description: Tanggal baru sudah ada untuk jadwal yang sama (duplikat)
+ *       500:
+ *         description: Kesalahan server
+ */
+router.put("/jadwal/edit/libur/:id", updateLiburJadwal);
 
 /**
  * @swagger
@@ -618,6 +816,45 @@ router.post("/jadwal/:id/libur", verifyToken, addLiburJadwal);
  *         description: Kesalahan server
  */
 router.post("/jadwal/:id/libur/bulk", verifyToken, bulkAddLiburJadwal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/libur-jadwal/delete/{id}:
+ *   delete:
+ *     summary: Hapus data libur jadwal
+ *     tags: [Admin - Jadwal Libur]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID libur jadwal
+ *     responses:
+ *       200:
+ *         description: Libur jadwal berhasil dihapus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Libur jadwal berhasil dihapus
+ *       400:
+ *         description: ID libur jadwal tidak valid
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Data libur jadwal tidak ditemukan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.delete("/jadwal/libur-jadwal/delete/:id", deleteLiburJadwalById);
 
 /**
  * @swagger

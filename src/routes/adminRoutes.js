@@ -620,8 +620,21 @@ router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
  * @swagger
  * /api/admin/update/user/{id}:
  *   patch:
- *     summary: Update data user (termasuk sabuk dan data pelatih)
- *     tags: [Admin]
+ *     summary: Update data user berdasarkan role (Murid / Pelatih / Admin)
+ *     description: |
+ *       Field yang dapat diupdate tergantung role user yang sedang diupdate:
+ *
+ *       **Murid**:
+ *       - Nama Lengkap, No Telepon, email, tanggal lahir, status, sabuk
+ *
+ *       **Pelatih**:
+ *       - Semua field Murid + spesialisasi, bio, sertifikasi (bisa multi/single)
+ *
+ *       **Admin**:
+ *       - Nama Lengkap, No Telepon, email, tanggal lahir, status
+ *     tags: [Admin - Manajemen User]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -636,36 +649,41 @@ router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
  *           schema:
  *             type: object
  *             properties:
+ *               # Field umum untuk semua role
  *               name:
  *                 type: string
+ *                 description: Nama lengkap (semua role)
  *               email:
  *                 type: string
  *                 format: email
+ *                 description: Email (semua role)
  *               phone:
  *                 type: string
- *               password:
- *                 type: string
- *                 format: password
+ *                 description: No telepon (semua role)
  *               tanggal_lahir:
  *                 type: string
  *                 format: date
+ *                 description: Tanggal lahir (semua role)
  *               status:
  *                 type: string
  *                 enum: [active, inactive]
+ *                 description: Status akun (semua role)
+ *               # Field untuk Murid dan Pelatih
  *               belt_id:
  *                 type: integer
- *                 description: ID sabuk baru (dari tabel belts)
+ *                 description: ID sabuk baru (Murid dan Pelatih)
  *               belt_achieved_at:
  *                 type: string
  *                 format: date
- *                 description: Tanggal pencapaian sabuk (opsional)
+ *                 description: Tanggal pencapaian sabuk (Murid dan Pelatih)
+ *               # Field khusus Pelatih
  *               spesialisasi:
  *                 type: string
  *                 enum: [kyorugi, poomsae, keduanya, all, "kyourigi & poomsae"]
- *                 description: Hanya untuk pelatih
+ *                 description: Spesialisasi (khusus Pelatih)
  *               bio:
  *                 type: string
- *                 description: Biografi pelatih (hanya untuk pelatih)
+ *                 description: Biografi (khusus Pelatih)
  *               sertifikasi:
  *                 type: array
  *                 items:
@@ -680,32 +698,35 @@ router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
  *                     nama:
  *                       type: string
  *                       description: Nama baru sertifikasi
- *                 description: Daftar sertifikasi yang akan diedit (bisa satu atau lebih, berdasarkan ID)
- *                 example: [{ id: 5, nama: "Sertifikasi Nasional Level 2" }]
+ *                 description: Daftar sertifikasi (khusus Pelatih) - edit per ID
+ *                 example: [{ id: 5, nama: "Sertifikasi Baru" }]
  *           examples:
- *             updateBiasa:
- *               summary: Update data profil biasa
+ *             updateMurid:
+ *               summary: Update data murid (nama, email, sabuk)
  *               value:
- *                 name: "John Doe"
- *                 email: "john@example.com"
+ *                 name: "Budi Santoso"
+ *                 email: "budi@example.com"
+ *                 phone: "08123456789"
+ *                 tanggal_lahir: "2010-05-10"
  *                 status: "active"
- *             updateSabuk:
- *               summary: Update sabuk saja
+ *                 belt_id: 5
+ *             updatePelatih:
+ *               summary: Update data pelatih (semua field termasuk sertifikasi)
  *               value:
- *                 belt_id: 3
- *                 belt_achieved_at: "2025-05-01"
- *             updatePelatihEditSertifikasi:
- *               summary: Edit satu sertifikasi pelatih berdasarkan ID
+ *                 name: "Susi Susanti"
+ *                 email: "susi@example.com"
+ *                 phone: "08123456789"
+ *                 status: "active"
+ *                 belt_id: 12
+ *                 spesialisasi: "poomsae"
+ *                 bio: "Pelatih berpengalaman 10 tahun"
+ *                 sertifikasi: [{ id: 2, nama: "Sertifikasi Pelatih Daerah" }]
+ *             updateAdmin:
+ *               summary: Update data admin (hanya field dasar)
  *               value:
- *                 spesialisasi: "kyorugi"
- *                 sertifikasi: [{ id: 5, nama: "Sertifikasi yang sudah diperbarui" }]
- *             updatePelatihMultipleSertifikasi:
- *               summary: Edit beberapa sertifikasi sekaligus
- *               value:
- *                 sertifikasi: [
- *                   { id: 5, nama: "Nama baru untuk sertif 5" },
- *                   { id: 7, nama: "Nama baru untuk sertif 7" }
- *                 ]
+ *                 name: "Admin Baru"
+ *                 phone: "087654321"
+ *                 status: "active"
  *     responses:
  *       200:
  *         description: User berhasil diperbarui
@@ -718,26 +739,106 @@ router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
  *                   type: string
  *                 data:
  *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                     tanggal_lahir:
+ *                       type: string
+ *                     tahun_lahir:
+ *                       type: integer
+ *                     status:
+ *                       type: string
+ *                     roles:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     sabuk_saat_ini:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         name:
+ *                           type: string
+ *                     pelatih:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         spesialisasi:
+ *                           type: string
+ *                         bio:
+ *                           type: string
+ *                           nullable: true
+ *                         sertifikasi:
+ *                           type: array
+ *                           items:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: integer
+ *                               nama:
+ *                                 type: string
  *             examples:
+ *               responseMurid:
+ *                 value:
+ *                   message: "User berhasil diperbarui"
+ *                   data:
+ *                     id: 1
+ *                     name: "Budi Santoso"
+ *                     email: "budi@example.com"
+ *                     phone: "08123456789"
+ *                     tanggal_lahir: "2010-05-10"
+ *                     tahun_lahir: 2010
+ *                     status: "active"
+ *                     roles: ["murid"]
+ *                     sabuk_saat_ini: { id: 5, name: "Hijau Strip Biru" }
  *               responsePelatih:
  *                 value:
  *                   message: "User berhasil diperbarui"
  *                   data:
  *                     id: 2
- *                     name: "Pelatih Satu"
+ *                     name: "Susi Susanti"
+ *                     email: "susi@example.com"
+ *                     phone: "08123456789"
+ *                     tanggal_lahir: "1990-03-20"
+ *                     tahun_lahir: 1990
  *                     status: "active"
+ *                     roles: ["pelatih"]
+ *                     sabuk_saat_ini: { id: 12, name: "DAN I" }
  *                     pelatih:
- *                       spesialisasi: "kyorugi"
- *                       bio: null
- *                       sertifikasi: [{ id: 5, nama: "Sertifikasi yang sudah diperbarui" }, { id: 7, nama: "Sertifikasi lain" }]
+ *                       spesialisasi: "poomsae"
+ *                       bio: "Pelatih berpengalaman 10 tahun"
+ *                       sertifikasi: [{ id: 2, nama: "Sertifikasi Pelatih Daerah" }]
+ *               responseAdmin:
+ *                 value:
+ *                   message: "User berhasil diperbarui"
+ *                   data:
+ *                     id: 3
+ *                     name: "Admin Baru"
+ *                     email: "admin@example.com"
+ *                     phone: "087654321"
+ *                     tanggal_lahir: "1988-07-10"
+ *                     tahun_lahir: 1988
+ *                     status: "active"
+ *                     roles: ["admin"]
  *       400:
- *         description: Validasi gagal (misal ID sertifikasi tidak valid atau bukan milik pelatih)
+ *         description: Validasi gagal (field tidak sesuai role, data tidak valid, atau ID sertifikasi bukan milik pelatih)
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *       403:
+ *         description: Akses ditolak (misal non-admin mencoba mengubah role)
  *       404:
  *         description: User tidak ditemukan
  *       500:
  *         description: Kesalahan server
  */
-router.patch("/update/user/:id", updateUser);
+router.patch("/update/user/:id", verifyToken, updateUser);
 
 /**
  * @swagger

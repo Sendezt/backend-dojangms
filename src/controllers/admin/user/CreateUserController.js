@@ -1,4 +1,3 @@
-// src\controllers\admin\user\CreateUserController.js
 const db = require("../../../config/database");
 const bcrypt = require("bcrypt");
 
@@ -12,7 +11,9 @@ exports.createUser = async (req, res) => {
     roles,
     status,
     belt_id,
-    sertifikasi,
+    spesialisasi, // untuk pelatih
+    sertifikasi, // array of string (nama sertifikasi)
+    bio, // untuk pelatih
   } = req.body;
 
   if (!name || !email || !password || !tanggal_lahir) {
@@ -80,7 +81,6 @@ exports.createUser = async (req, res) => {
 
     const isAdmin = userRoles.some((r) => r.name === "admin");
 
-    // Cek apakah user coba buat admin tapi bukan admin
     if (roleList.includes("admin") && !isAdmin) {
       await conn.rollback();
       return res.status(403).json({
@@ -88,7 +88,6 @@ exports.createUser = async (req, res) => {
       });
     }
 
-    // Cek apakah user coba buat pelatih tapi bukan admin
     if (roleList.includes("pelatih") && !isAdmin) {
       await conn.rollback();
       return res.status(403).json({
@@ -115,19 +114,39 @@ exports.createUser = async (req, res) => {
       );
     }
 
-    // handle pelatih
+    // handle pelatih (jika role pelatih ada)
     if (roleList.includes("pelatih")) {
-      await conn.query(
-        `INSERT INTO pelatih (user_id, spesialisasi, sertifikasi) VALUES (?, ?, ?)`,
-        [
-          userId,
-          req.body.spesialisasi || "kyorugi & poomsae",
-          sertifikasi || null,
-        ],
+      // Default spesialisasi ke 'keduanya' (aman karena ada di enum)
+      const pelatihSpesialisasi = spesialisasi || "keduanya";
+      const pelatihBio = bio || null;
+
+      // Insert ke tabel pelatih (tanpa sertifikasi)
+      const [pelatihResult] = await conn.query(
+        `INSERT INTO pelatih (user_id, spesialisasi, bio)
+         VALUES (?, ?, ?)`,
+        [userId, pelatihSpesialisasi, pelatihBio],
       );
+      const pelatihId = pelatihResult.insertId;
+
+      // Handle sertifikasi (array of string) jika ada
+      if (sertifikasi && Array.isArray(sertifikasi) && sertifikasi.length > 0) {
+        for (const namaSertif of sertifikasi) {
+          if (
+            namaSertif &&
+            typeof namaSertif === "string" &&
+            namaSertif.trim()
+          ) {
+            await conn.query(
+              `INSERT INTO sertifikasi_pelatih (pelatih_id, nama_sertifikasi)
+               VALUES (?, ?)`,
+              [pelatihId, namaSertif.trim()],
+            );
+          }
+        }
+      }
     }
 
-    // handle belt
+    // handle belt (untuk murid atau pelatih)
     if (roleList.includes("murid") || roleList.includes("pelatih")) {
       let selectedBeltId = belt_id;
 
@@ -172,6 +191,7 @@ exports.createUser = async (req, res) => {
     });
   } catch (error) {
     await conn.rollback();
+    console.error(error);
     return res.status(500).json({
       message: "Gagal membuat user",
       error: error.message,
