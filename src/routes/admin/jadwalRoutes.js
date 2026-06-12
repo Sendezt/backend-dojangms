@@ -57,6 +57,9 @@ const {
 const {
   deleteLiburJadwalById,
 } = require("../../controllers/admin/jadwal/deleteJadwalLiburByIdController");
+const {
+  getLiburGlobalById,
+} = require("../../controllers/admin/jadwal/getLiburGlobalByIdController");
 
 /**
  * @swagger
@@ -1139,6 +1142,121 @@ router.post("/jadwal/libur-global/bulk", verifyToken, bulkCreateLiburGlobal);
  *         description: Server error
  */
 router.get("/jadwal/libur-global/get", getAllLiburGlobal);
+
+/**
+ * @swagger
+ * /api/admin/jadwal/libur-global/get/{id}:
+ *   get:
+ *     summary: Ambil detail libur global berdasarkan ID, beserta daftar jadwal yang libur pada tanggal yang sama
+ *     tags: [Admin - Jadwal Libur Global]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID dari tabel libur_global
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil detail libur global
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     tanggal:
+ *                       type: string
+ *                       format: date
+ *                     keterangan:
+ *                       type: string
+ *                       nullable: true
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                     daftar_jadwal_libur:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           libur_jadwal_id:
+ *                             type: integer
+ *                           keterangan_libur:
+ *                             type: string
+ *                             nullable: true
+ *                           jadwal:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: integer
+ *                               nama:
+ *                                 type: string
+ *                               tipe:
+ *                                 type: string
+ *                               hari:
+ *                                 type: string
+ *                               jam_mulai:
+ *                                 type: string
+ *                               jam_selesai:
+ *                                 type: string
+ *                               lokasi:
+ *                                 type: string
+ *                               status:
+ *                                 type: string
+ *                               kelas:
+ *                                 type: object
+ *                                 properties:
+ *                                   id:
+ *                                     type: integer
+ *                                   nama:
+ *                                     type: string
+ *                           created_at:
+ *                             type: string
+ *                     total_jadwal_libur:
+ *                       type: integer
+ *             example:
+ *               message: "Berhasil mengambil detail libur global"
+ *               data:
+ *                 id: 1
+ *                 tanggal: "2026-08-17"
+ *                 keterangan: "Hari Kemerdekaan"
+ *                 created_at: "2026-06-08 01:49:44"
+ *                 daftar_jadwal_libur:
+ *                   - libur_jadwal_id: 4
+ *                     keterangan_libur: "Libur Nasional"
+ *                     jadwal:
+ *                       id: 1
+ *                       nama: "Latihan Wajib - Senin"
+ *                       tipe: "latihan_wajib"
+ *                       hari: "senin"
+ *                       jam_mulai: "16:00:00"
+ *                       jam_selesai: "18:00:00"
+ *                       lokasi: "GOR Utama"
+ *                       status: "aktif"
+ *                       kelas: null
+ *                     created_at: "2026-06-08 01:49:44"
+ *                 total_jadwal_libur: 1
+ *       400:
+ *         description: ID libur global tidak valid
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Libur global tidak ditemukan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.get("/jadwal/libur-global/get/:id", getLiburGlobalById);
 
 /**
  * @swagger

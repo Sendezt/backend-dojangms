@@ -54,6 +54,18 @@ const {
 const {
   bulkSoftDeleteMuridFromKelas,
 } = require("../../controllers/admin/kelas/softDeleteMuridBulkController");
+const {
+  getCalonMurid,
+} = require("../../controllers/admin/kelas/getMuridToAddKelas");
+const {
+  getCalonPelatih,
+} = require("../../controllers/admin/kelas/getPelatihToAddKelasController");
+const {
+  getPelatihByKelas,
+} = require("../../controllers/admin/kelas/getPelatihByKelas");
+const {
+  getMuridByKelas,
+} = require("../../controllers/admin/kelas/getMuridByKelasController");
 
 /**
  * @swagger
@@ -121,7 +133,7 @@ const {
  *       500:
  *         description: Kesalahan server
  */
-router.post("/kelas/createKelas", createKelas);
+router.post("/kelas/createKelas", verifyToken, createKelas);
 
 /**
  * @swagger
@@ -534,7 +546,7 @@ router.post("/kelas/addMurid", addMuridToKelas);
  *       500:
  *         description: Kesalahan server
  */
-router.post("/kelas/bulkaddmurid", bulkAddMuridToKelas);
+router.post("/kelas/bulkaddmurid", verifyToken, bulkAddMuridToKelas);
 
 /**
  * @swagger
@@ -671,6 +683,101 @@ router.patch("/kelas/softdeletemurid/bulk", bulkSoftDeleteMuridFromKelas);
 
 /**
  * @swagger
+ * /api/admin/kelas/{kelasId}/pelatih:
+ *   get:
+ *     summary: Daftar pelatih yang sudah terdaftar di suatu kelas (status aktif)
+ *     tags: [Admin - Kelas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kelasId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10, 25, 50, 75, 100, 200]
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Cari berdasarkan nama, email, atau telepon
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       400:
+ *         description: ID kelas tidak valid
+ *       404:
+ *         description: Kelas tidak ditemukan
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get("/kelas/:kelasId/pelatih", getPelatihByKelas);
+
+/**
+ * @swagger
+ * /api/admin/kelas/{kelasId}/calon-pelatih:
+ *   get:
+ *     summary: Daftar pelatih aktif yang belum terdaftar di suatu kelas (calon untuk ditambahkan)
+ *     tags: [Admin - Kelas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kelasId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10, 25, 50, 75, 100, 200]
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Cari berdasarkan nama, email, atau telepon
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       400:
+ *         description: ID kelas tidak valid
+ *       404:
+ *         description: Kelas tidak ditemukan
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+
+router.get("/kelas/:kelasId/calon-pelatih", getCalonPelatih);
+
+/**
+ * @swagger
  * /api/admin/kelas/addpelatih:
  *   post:
  *     summary: Tugaskan satu pelatih ke kelas (support reaktivasi)
@@ -803,7 +910,7 @@ router.post("/kelas/addpelatih", addPelatihToKelas);
  *       500:
  *         description: Kesalahan server
  */
-router.post("/kelas/bulkaddpelatih", bulkAddPelatihToKelas);
+router.post("/kelas/bulkaddpelatih", verifyToken, bulkAddPelatihToKelas);
 
 /**
  * @swagger
@@ -915,5 +1022,87 @@ router.patch("/kelas/softdeletepelatih", softDeletePelatihFromKelas);
  *         description: Kesalahan server
  */
 router.patch("/kelas/softdelete/bulk", bulkSoftDeletePelatihFromKelas);
+
+/**
+ * @swagger
+ * /api/admin/kelas/{kelasId}/murid:
+ *   get:
+ *     summary: Daftar murid yang sudah terdaftar di suatu kelas (aktif)
+ *     tags: [Admin - Kelas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kelasId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, enum: [10,25,50,75,100,200], default: 10 }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *         description: Cari berdasarkan nama, email, atau telepon
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       400:
+ *         description: ID kelas tidak valid
+ *       404:
+ *         description: Kelas tidak ditemukan
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get("/kelas/:kelasId/murid", getMuridByKelas);
+
+/**
+ * @swagger
+ * /api/admin/kelas/{kelasId}/calon-murid:
+ *   get:
+ *     summary: Daftar murid aktif yang belum terdaftar di kelas tertentu (calon tambahan)
+ *     tags: [Admin - Kelas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kelasId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas yang akan dicari calon muridnya
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, enum: [10,25,50,75,100,200], default: 10 }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *         description: Cari berdasarkan nama, email, atau telepon
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       400:
+ *         description: ID kelas tidak valid
+ *       404:
+ *         description: Kelas tidak ditemukan
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get("/kelas/:kelasId/calon-murid", verifyToken, getCalonMurid);
 
 module.exports = router;
