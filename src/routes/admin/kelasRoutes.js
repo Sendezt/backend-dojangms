@@ -66,6 +66,9 @@ const {
 const {
   getMuridByKelas,
 } = require("../../controllers/admin/kelas/getMuridByKelasController");
+const {
+  getKelasLengkapById,
+} = require("../../controllers/admin/kelas/getKelasDatabyIdController");
 
 /**
  * @swagger
@@ -611,7 +614,7 @@ router.post("/kelas/bulkaddmurid", verifyToken, bulkAddMuridToKelas);
  *       500:
  *         description: Kesalahan server
  */
-router.patch("/kelas/softdeletemurid", softDeleteMuridFromKelas);
+router.patch("/kelas/softdeletemurid", verifyToken, softDeleteMuridFromKelas);
 
 /**
  * @swagger
@@ -679,7 +682,11 @@ router.patch("/kelas/softdeletemurid", softDeleteMuridFromKelas);
  *       500:
  *         description: Kesalahan server
  */
-router.patch("/kelas/softdeletemurid/bulk", bulkSoftDeleteMuridFromKelas);
+router.patch(
+  "/kelas/softdeletemurid/bulk",
+  verifyToken,
+  bulkSoftDeleteMuridFromKelas,
+);
 
 /**
  * @swagger
@@ -773,7 +780,6 @@ router.get("/kelas/:kelasId/pelatih", getPelatihByKelas);
  *       500:
  *         description: Server error
  */
-
 router.get("/kelas/:kelasId/calon-pelatih", getCalonPelatih);
 
 /**
@@ -959,7 +965,7 @@ router.patch("/kelas/softdeletepelatih", softDeletePelatihFromKelas);
 
 /**
  * @swagger
- * /api/admin/kelas/softdelete/bulk:
+ * /api/admin/kelas/softdeletepelatih/bulk:
  *   patch:
  *     summary: Soft delete (nonaktifkan) banyak pelatih dari kelas
  *     tags: [Admin - Kelas]
@@ -1021,7 +1027,7 @@ router.patch("/kelas/softdeletepelatih", softDeletePelatihFromKelas);
  *       500:
  *         description: Kesalahan server
  */
-router.patch("/kelas/softdelete/bulk", bulkSoftDeletePelatihFromKelas);
+router.patch("/kelas/softdeletepelatih/bulk", bulkSoftDeletePelatihFromKelas);
 
 /**
  * @swagger
@@ -1104,5 +1110,206 @@ router.get("/kelas/:kelasId/murid", getMuridByKelas);
  *         description: Server error
  */
 router.get("/kelas/:kelasId/calon-murid", verifyToken, getCalonMurid);
+
+/**
+ * @swagger
+ * /api/admin/kelas/{id}/data-lengkap:
+ *   get:
+ *     summary: Detail kelas lengkap (info kelas, jadwal, pelatih, murid)
+ *     tags: [Admin - Kelas]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas
+ *         example: 3
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil detail kelas
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     nama:
+ *                       type: string
+ *                     deskripsi:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                     jadwal:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                           hari:
+ *                             type: string
+ *                             nullable: true
+ *                           effective_from:
+ *                             type: string
+ *                             format: date
+ *                             nullable: true
+ *                           effective_until:
+ *                             type: string
+ *                             format: date
+ *                             nullable: true
+ *                           tanggal_mulai:
+ *                             type: string
+ *                             format: date
+ *                             nullable: true
+ *                           tanggal_selesai:
+ *                             type: string
+ *                             format: date
+ *                             nullable: true
+ *                           jam_mulai:
+ *                             type: string
+ *                             format: time
+ *                           jam_selesai:
+ *                             type: string
+ *                             format: time
+ *                           lokasi:
+ *                             type: string
+ *                           keterangan:
+ *                             type: string
+ *                             nullable: true
+ *                           status:
+ *                             type: string
+ *                     pelatih:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                           email:
+ *                             type: string
+ *                           telepon:
+ *                             type: string
+ *                           foto:
+ *                             type: string
+ *                             nullable: true
+ *                           tanggal_lahir:
+ *                             type: string
+ *                             format: date
+ *                           spesialisasi:
+ *                             type: string
+ *                             nullable: true
+ *                           tanggal_bergabung:
+ *                             type: string
+ *                             format: date
+ *                           sabuk_saat_ini:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: integer
+ *                               nama:
+ *                                 type: string
+ *                             nullable: true
+ *                     murid:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                           email:
+ *                             type: string
+ *                           telepon:
+ *                             type: string
+ *                           foto:
+ *                             type: string
+ *                             nullable: true
+ *                           tanggal_lahir:
+ *                             type: string
+ *                             format: date
+ *                           tanggal_bergabung:
+ *                             type: string
+ *                             format: date
+ *                           sabuk_saat_ini:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: integer
+ *                               nama:
+ *                                 type: string
+ *                             nullable: true
+ *             example:
+ *               message: "Berhasil mengambil detail kelas"
+ *               data:
+ *                 id: 3
+ *                 nama: "Kelas Taekwondo Pemula 123"
+ *                 deskripsi: "Kelas untuk pemula usia 7-12 tahun"
+ *                 status: "aktif"
+ *                 created_at: "2026-06-04T16:33:47.000Z"
+ *                 jadwal:
+ *                   - id: 2
+ *                     nama: "Latihan SD Kalibening"
+ *                     hari: "senin"
+ *                     effective_from: "2026-06-10"
+ *                     effective_until: null
+ *                     tanggal_mulai: null
+ *                     tanggal_selesai: null
+ *                     jam_mulai: "13:00:00"
+ *                     jam_selesai: "16:45:00"
+ *                     lokasi: "SD Kalibening"
+ *                     keterangan: null
+ *                     status: "aktif"
+ *                 pelatih:
+ *                   - id: 8
+ *                     nama: "Ahmad Wijaya"
+ *                     email: "ahmad@mail.com"
+ *                     telepon: "081234567890"
+ *                     foto: null
+ *                     tanggal_lahir: "1990-01-09"
+ *                     spesialisasi: "kyorugi"
+ *                     tanggal_bergabung: "2026-06-05"
+ *                     sabuk_saat_ini:
+ *                       id: 6
+ *                       nama: "Biru"
+ *                 murid:
+ *                   - id: 1
+ *                     nama: "Murid Satu"
+ *                     email: "murid.satu@gmail.com"
+ *                     telepon: "081234567890"
+ *                     foto: null
+ *                     tanggal_lahir: "2010-05-10"
+ *                     tanggal_bergabung: "2026-06-13"
+ *                     sabuk_saat_ini:
+ *                       id: 5
+ *                       nama: "Hijau Strip Biru"
+ *       400:
+ *         description: ID kelas tidak valid
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Kelas tidak ditemukan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.get("/kelas/:id/data-lengkap", getKelasLengkapById);
 
 module.exports = router;
