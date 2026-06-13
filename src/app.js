@@ -4,6 +4,7 @@ const path = require("path");
 require("dotenv").config();
 const app = express();
 
+const kelolaUjianSabuk = require("./routes/admin/ujianSabukRoutes");
 const kelolaKejuaraan = require("./routes/admin/kejuaraanRoutes");
 const kelolaAbsensiRouter = require("./routes/admin/absensiRoutes");
 const kelolaJadwalRouter = require("./routes/admin/jadwalRoutes");
@@ -40,6 +41,7 @@ app.use("/api/admin", kelolaJadwalRouter);
 app.use("/api/admin", kelolaKelasRouter);
 app.use("/api/admin", kelolaAbsensiRouter);
 app.use("/api/admin", kelolaKejuaraan);
+app.use("/api/admin", kelolaUjianSabuk);
 app.use("/api/auth", authRouter);
 app.use("/api/public", publicRouter);
 
