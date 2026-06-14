@@ -18,8 +18,6 @@ exports.getKelasKyorugiById = async (req, res) => {
          ky.batas_atas,
          ku.id AS kategori_usia_id,
          ku.name AS kategori_usia_nama,
-         ku.min_age,
-         ku.max_age,
          lk.id AS level_kelas_id,
          lk.name AS level_kelas_nama
        FROM kelas_kyorugi ky
@@ -44,8 +42,6 @@ exports.getKelasKyorugiById = async (req, res) => {
       kategori_usia: {
         id: data.kategori_usia_id,
         nama: data.kategori_usia_nama,
-        min_age: data.min_age,
-        max_age: data.max_age,
       },
       level_kelas: {
         id: data.level_kelas_id,

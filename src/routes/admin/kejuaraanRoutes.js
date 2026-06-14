@@ -36,6 +36,91 @@ const {
 const {
   deleteKelasKyorugi,
 } = require("../../controllers/admin/kejuaraan/deleteKelasKyorugiController");
+const {
+  deleteKejuaraan,
+} = require("../../controllers/admin/kejuaraan/deleteKejuaraanController");
+const {
+  getAllKategoriUsia,
+} = require("../../controllers/admin/kejuaraan/getAllKategoriUsiaController");
+const {
+  getAllLevelKelas,
+} = require("../../controllers/admin/kejuaraan/getAllLevelKelasController");
+
+/**
+ * @swagger
+ * /api/admin/kategori-usia:
+ *   get:
+ *     summary: Ambil semua daftar kategori usia (Pra-Cadet, Cadet, Junior, Senior)
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get("/kategori-usia", verifyToken, getAllKategoriUsia);
+
+/**
+ * @swagger
+ * /api/admin/level-kelas:
+ *   get:
+ *     summary: Ambil semua daftar level kelas (festival, pemula, prestasi)
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get("/level-kelas", verifyToken, getAllLevelKelas);
 
 /**
  * @swagger
@@ -261,7 +346,7 @@ router.post("/kejuaraan/create", verifyToken, createKejuaraan);
  *       500:
  *         description: Kesalahan server
  */
-router.get("/kejuaraan/getall", getAllKejuaraan);
+router.get("/kejuaraan/getall", verifyToken, getAllKejuaraan);
 
 /**
  * @swagger
@@ -530,7 +615,44 @@ router.put("/kejuaraan/update/:id", verifyToken, updateKejuaraan);
  *             nama:
  *               type: string
  */
-router.get("/kejuaraan/:id", getKejuaraanById);
+router.get("/kejuaraan/:id", verifyToken, getKejuaraanById);
+
+/**
+ * @swagger
+ * /api/admin/kejuaraan/{id}:
+ *   delete:
+ *     summary: Hapus kejuaraan (hanya untuk kejuaraan yang akan datang dan belum memiliki peserta)
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Kejuaraan berhasil dihapus
+ *       400:
+ *         description: ID kejuaraan tidak valid
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Kejuaraan tidak ditemukan
+ *       409:
+ *         description: |
+ *           Kejuaraan tidak dapat dihapus karena salah satu alasan:
+ *           - Kejuaraan sedang berlangsung
+ *           - Kejuaraan sudah selesai
+ *           - Kejuaraan akan datang tetapi sudah memiliki peserta
+ *           - Kejuaraan masih memiliki kelas pertandingan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.delete("/kejuaraan/:id", verifyToken, deleteKejuaraan);
 
 /**
  * @swagger
@@ -780,10 +902,6 @@ router.post("/kelas-kyorugi", createKelasKyorugi);
  *                             type: integer
  *                           nama:
  *                             type: string
- *                           min_age:
- *                             type: integer
- *                           max_age:
- *                             type: integer
  *                             nullable: true
  *                       level_kelas:
  *                         type: object

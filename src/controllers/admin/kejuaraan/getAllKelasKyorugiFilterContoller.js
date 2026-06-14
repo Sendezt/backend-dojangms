@@ -5,7 +5,6 @@ const ALLOWED_GENDERS = ["putra", "putri"];
 
 exports.getAllKelasKyorugi = async (req, res) => {
   try {
-    // Pagination & filter params
     let page = parseInt(req.query.page) || 1;
     let limit = parseInt(req.query.limit) || 10;
     const search = req.query.search?.trim() || null;
@@ -17,7 +16,6 @@ exports.getAllKelasKyorugi = async (req, res) => {
       ? parseInt(req.query.level_kelas_id)
       : null;
 
-    // Validasi
     if (!ALLOWED_LIMITS.includes(limit)) limit = 10;
     if (page < 1) page = 1;
     if (gender && !ALLOWED_GENDERS.includes(gender)) {
@@ -38,7 +36,6 @@ exports.getAllKelasKyorugi = async (req, res) => {
 
     const offset = (page - 1) * limit;
 
-    // Dynamic WHERE clause
     const where = [];
     const params = [];
 
@@ -61,13 +58,11 @@ exports.getAllKelasKyorugi = async (req, res) => {
 
     const whereClause = where.length ? "WHERE " + where.join(" AND ") : "";
 
-    // Hitung total (menggunakan db.query, bukan execute)
     const countSql = `SELECT COUNT(*) as total FROM kelas_kyorugi ky ${whereClause}`;
     const [countResult] = await db.query(countSql, params);
     const totalData = countResult[0]?.total || 0;
     const totalPages = Math.ceil(totalData / limit);
 
-    // Ambil data
     const dataSql = `
       SELECT 
         ky.id,
@@ -77,8 +72,6 @@ exports.getAllKelasKyorugi = async (req, res) => {
         ky.batas_atas,
         ku.id AS kategori_usia_id,
         ku.name AS kategori_usia_nama,
-        ku.min_age,
-        ku.max_age,
         lk.id AS level_kelas_id,
         lk.name AS level_kelas_nama
       FROM kelas_kyorugi ky
@@ -100,8 +93,6 @@ exports.getAllKelasKyorugi = async (req, res) => {
       kategori_usia: {
         id: row.kategori_usia_id,
         nama: row.kategori_usia_nama,
-        min_age: row.min_age,
-        max_age: row.max_age,
       },
       level_kelas: {
         id: row.level_kelas_id,

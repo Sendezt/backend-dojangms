@@ -29,7 +29,7 @@ exports.updateKelasKyorugi = async (req, res) => {
         .json({ success: false, message: "Kelas kyorugi tidak ditemukan" });
     }
 
-    // Validasi input (hanya field yang dikirim akan diupdate, jika tidak dikirim tetap gunakan nilai lama)
+    // Gunakan nilai lama jika tidak dikirim
     const finalKategoriUsiaId =
       kategori_usia_id !== undefined
         ? kategori_usia_id
@@ -45,7 +45,7 @@ exports.updateKelasKyorugi = async (req, res) => {
     let finalBatasAtas =
       batas_atas !== undefined ? batas_atas : existing[0].batas_atas;
 
-    // Validasi tipe dan nilai
+    // Validasi input
     if (
       kategori_usia_id !== undefined &&
       (isNaN(kategori_usia_id) || kategori_usia_id < 1)
@@ -76,7 +76,7 @@ exports.updateKelasKyorugi = async (req, res) => {
         .json({ success: false, message: "Label wajib diisi" });
     }
 
-    // Ekstrak angka dari label (contoh "under-42" -> 42)
+    // Ekstrak angka dari label
     const match = finalLabel.match(/\d+/);
     if (!match) {
       return res
@@ -88,7 +88,7 @@ exports.updateKelasKyorugi = async (req, res) => {
     }
     const maxBatasDariLabel = parseInt(match[0], 10);
 
-    // Validasi batas_bawah dan batas_atas jika dikirim
+    // Validasi batas berat
     if (batas_bawah !== undefined && batas_atas !== undefined) {
       const bawah = parseFloat(finalBatasBawah);
       const atas = parseFloat(finalBatasAtas);
@@ -125,7 +125,7 @@ exports.updateKelasKyorugi = async (req, res) => {
         });
     }
 
-    // Cek foreign key jika diubah
+    // Cek foreign key
     if (kategori_usia_id !== undefined) {
       const [kategori] = await db.query(
         "SELECT id FROM kategori_usia WHERE id = ?",
@@ -149,11 +149,10 @@ exports.updateKelasKyorugi = async (req, res) => {
       }
     }
 
-    // Cegah duplikasi (kombinasi unik) kecuali record itu sendiri
+    // Cegah duplikasi
     const [duplicate] = await db.query(
       `SELECT id FROM kelas_kyorugi
-       WHERE kategori_usia_id = ? AND level_kelas_id = ? AND gender = ? AND label = ?
-       AND id != ?`,
+       WHERE kategori_usia_id = ? AND level_kelas_id = ? AND gender = ? AND label = ? AND id != ?`,
       [
         finalKategoriUsiaId,
         finalLevelKelasId,
@@ -171,7 +170,7 @@ exports.updateKelasKyorugi = async (req, res) => {
         });
     }
 
-    // Siapkan nilai untuk update (konversi null jika undefined)
+    // Siapkan nilai update
     const updateBatasBawah =
       finalBatasBawah !== undefined && finalBatasBawah !== null
         ? parseFloat(finalBatasBawah)
@@ -181,7 +180,7 @@ exports.updateKelasKyorugi = async (req, res) => {
         ? parseFloat(finalBatasAtas)
         : null;
 
-    // Update
+    // Update database
     await db.query(
       `UPDATE kelas_kyorugi
        SET kategori_usia_id = ?, level_kelas_id = ?, gender = ?, label = ?, batas_bawah = ?, batas_atas = ?
@@ -197,7 +196,7 @@ exports.updateKelasKyorugi = async (req, res) => {
       ],
     );
 
-    // Ambil data terbaru untuk response
+    // Ambil data terbaru untuk response (tanpa min_age dan max_age)
     const [updated] = await db.query(
       `SELECT 
          ky.id,
@@ -207,8 +206,6 @@ exports.updateKelasKyorugi = async (req, res) => {
          ky.batas_atas,
          ku.id AS kategori_usia_id,
          ku.name AS kategori_usia_nama,
-         ku.min_age,
-         ku.max_age,
          lk.id AS level_kelas_id,
          lk.name AS level_kelas_nama
        FROM kelas_kyorugi ky
@@ -227,8 +224,6 @@ exports.updateKelasKyorugi = async (req, res) => {
       kategori_usia: {
         id: row.kategori_usia_id,
         nama: row.kategori_usia_nama,
-        min_age: row.min_age,
-        max_age: row.max_age,
       },
       level_kelas: {
         id: row.level_kelas_id,
