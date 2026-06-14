@@ -21,6 +21,21 @@ const {
 const {
   restoreUjianSabuk,
 } = require("../../controllers/admin/ujian/restoreUjianKenaikanSabuk");
+const {
+  getCalonPesertaUjian,
+} = require("../../controllers/admin/ujian/getCalonPesertaUjianController");
+const {
+  getUjianTerjadwal,
+} = require("../../controllers/admin/ujian/getUjianTerjadwalController");
+const {
+  addBulkPesertaUjian,
+} = require("../../controllers/admin/ujian/addBulkPesertaUjianController.js");
+const {
+  bulkHardDeletePesertaUjian,
+} = require("../../controllers/admin/ujian/bulkHardDeletePesertaUjianController.js");
+const {
+  getPesertaUjianByUjianId,
+} = require("../../controllers/admin/ujian/getPesertaUjianByUjianIdController.js");
 
 /**
  * @swagger
@@ -200,6 +215,57 @@ router.post("/ujian-kenaikan-sabuk", verifyToken, createUjianSabuk);
  *         description: Kesalahan server
  */
 router.get("/ujian-kenaikan-sabuk/all", verifyToken, getAllUjianSabuk);
+
+/**
+ * @swagger
+ * /api/admin/ujian-kenaikan-sabuk/terjadwal:
+ *   get:
+ *     summary: Ambil semua ujian dengan status terjadwal dan belum dihapus (untuk dropdown)
+ *     tags: [Admin - Ujian Kenaikan Sabuk]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 summary:
+ *                   type: object
+ *                   properties:
+ *                     total:
+ *                       type: integer
+ *                     kota:
+ *                       type: integer
+ *                     provinsi:
+ *                       type: integer
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       tanggal_mulai:
+ *                         type: string
+ *                         format: date
+ *                       tanggal_selesai:
+ *                         type: string
+ *                         format: date
+ *                       level_ujian:
+ *                         type: string
+ *                       lokasi:
+ *                         type: string
+ *                       keterangan:
+ *                         type: string
+ *       500:
+ *         description: Server error
+ */
+router.get("/ujian-kenaikan-sabuk/terjadwal", verifyToken, getUjianTerjadwal);
 
 /**
  * @swagger
@@ -409,6 +475,288 @@ router.delete("/ujian-kenaikan-sabuk/:id", verifyToken, softDeleteUjianSabuk);
  *       500:
  *         description: Server error
  */
-router.patch("/ujian-kenaikan-sabuk/:id/restore", verifyToken, restoreUjianSabuk);
+router.patch(
+  "/ujian-kenaikan-sabuk/:id/restore",
+  verifyToken,
+  restoreUjianSabuk,
+);
+
+/**
+ * @swagger
+ * /api/admin/ujian-kenaikan-sabuk/{ujianId}/calon-peserta:
+ *   get:
+ *     summary: Daftar murid yang memenuhi syarat untuk mengikuti ujian (belum terdaftar)
+ *     tags: [Admin - Ujian Kenaikan Sabuk]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ujianId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, enum: [10,25,50,75,100,200], default: 10 }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *         description: Cari berdasarkan nama, email, atau telepon
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       404:
+ *         description: Ujian tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  "/ujian-kenaikan-sabuk/:ujianId/calon-peserta",
+  verifyToken,
+  getCalonPesertaUjian,
+);
+
+/**
+ * @swagger
+ * /api/admin/ujian-kenaikan-sabuk/{ujianId}/peserta/terdaftar:
+ *   get:
+ *     summary: Daftar peserta ujian dengan status 'terdaftar' (belum dinilai)
+ *     tags: [Admin - Ujian Kenaikan Sabuk]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ujianId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID ujian sabuk
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10, 25, 50, 75, 100, 200]
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Cari berdasarkan nama murid, email, atau telepon
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       404:
+ *         description: Ujian tidak ditemukan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.get(
+  "/ujian-kenaikan-sabuk/:ujianId/peserta/terdaftar",
+  verifyToken,
+  getPesertaUjianByUjianId,
+);
+
+/**
+ * @swagger
+ * /api/admin/ujian-kenaikan-sabuk/{ujianId}/peserta/bulk:
+ *   post:
+ *     summary: Tambah banyak peserta ke ujian sekaligus (bulk)
+ *     description: |
+ *       - Jika hanya mengirim array of integer (user_id), maka sistem akan secara otomatis menentukan `belt_tujuan_id` = sabuk dengan level satu tingkat di atas sabuk peserta saat ini.
+ *       - Jika ingin menentukan sabuk tujuan secara manual, kirim array of object dengan properti `user_id` dan `belt_tujuan_id`.
+ *       - Peserta yang sudah terdaftar atau tidak memenuhi syarat akan dilewati dan dicatat dalam daftar error.
+ *     tags: [Admin - Ujian Kenaikan Sabuk]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ujianId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID ujian sabuk
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - peserta_list
+ *             properties:
+ *               peserta_list:
+ *                 type: array
+ *                 description: Daftar peserta (bisa array integer atau array object)
+ *                 items:
+ *                   oneOf:
+ *                     - type: integer
+ *                       description: ID user (akan naik 1 tingkat sabuk)
+ *                     - type: object
+ *                       properties:
+ *                         user_id:
+ *                           type: integer
+ *                         belt_tujuan_id:
+ *                           type: integer
+ *                           description: Opsional, ID sabuk tujuan (jika tidak diisi, akan ditentukan otomatis)
+ *           examples:
+ *             simple:
+ *               summary: Daftar peserta dengan ID saja (naik 1 tingkat)
+ *               value:
+ *                 peserta_list: [26, 22, 10, 7, 17]
+ *             custom_belt:
+ *               summary: Daftar peserta dengan sabuk tujuan khusus
+ *               value:
+ *                 peserta_list:
+ *                   - user_id: 26
+ *                   - user_id: 22
+ *                     belt_tujuan_id: 8
+ *                   - user_id: 10
+ *     responses:
+ *       201:
+ *         description: Proses bulk selesai (beberapa mungkin gagal)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 success_count:
+ *                   type: integer
+ *                 error_count:
+ *                   type: integer
+ *                 success:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       user_id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *                       belt_asal_id:
+ *                         type: integer
+ *                       belt_tujuan_id:
+ *                         type: integer
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       user_id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *                       error:
+ *                         type: string
+ *             example:
+ *               message: "Proses bulk peserta selesai"
+ *               success_count: 3
+ *               error_count: 1
+ *               success:
+ *                 - user_id: 26
+ *                   name: "Budi Handoko"
+ *                   belt_asal_id: 5
+ *                   belt_tujuan_id: 6
+ *                 - user_id: 10
+ *                   name: "Murid Empat"
+ *                   belt_asal_id: 1
+ *                   belt_tujuan_id: 2
+ *               errors:
+ *                 - user_id: 7
+ *                   name: "Murid Tiga"
+ *                   error: "Sudah terdaftar di ujian ini"
+ *       400:
+ *         description: Input tidak valid (ID ujian salah, peserta_list bukan array, atau kosong)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: Ujian tidak ditemukan atau sudah dihapus
+ *       500:
+ *         description: Kesalahan server
+ */
+router.post(
+  "/ujian-kenaikan-sabuk/:ujianId/peserta/bulk",
+  verifyToken,
+  addBulkPesertaUjian,
+);
+
+/**
+ * @swagger
+ * /api/admin/ujian-kenaikan-sabuk/{ujianId}/peserta/bulk:
+ *   delete:
+ *     summary: Hapus banyak peserta dari ujian secara permanen (hard delete)
+ *     description: Menghapus data peserta_ujian berdasarkan daftar user_id yang diberikan.
+ *     tags: [Admin - Ujian Kenaikan Sabuk]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ujianId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID ujian sabuk
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_ids
+ *             properties:
+ *               user_ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 example: [26, 22, 10]
+ *     responses:
+ *       200:
+ *         description: Berhasil menghapus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 deleted_count:
+ *                   type: integer
+ *                 not_found:
+ *                   type: array
+ *                   items:
+ *                     type: integer
+ *                 deleted:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       user_id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *       400:
+ *         description: Input tidak valid (ID ujian salah, user_ids bukan array atau kosong)
+ *       404:
+ *         description: Ujian tidak ditemukan atau tidak ada peserta yang ditemukan untuk dihapus
+ *       500:
+ *         description: Kesalahan server
+ */
+router.delete(
+  "/ujian-kenaikan-sabuk/:ujianId/peserta/bulk",
+  verifyToken,
+  bulkHardDeletePesertaUjian,
+);
 
 module.exports = router;
