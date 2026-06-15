@@ -45,6 +45,27 @@ const {
 const {
   getAllLevelKelas,
 } = require("../../controllers/admin/kejuaraan/getAllLevelKelasController");
+const {
+  createKelasPoomsae,
+} = require("../../controllers/admin/kejuaraan/createKelasPoomsaeController");
+const {
+  getAllKelasPoomsae,
+} = require("../../controllers/admin/kejuaraan/getAllKelasPoomsaeController");
+const {
+  getAllPoomsaeFormat,
+} = require("../../controllers/admin/kejuaraan/getAllPoomsaeFormatController");
+const {
+  getAllPoomsaeJurus,
+} = require("../../controllers/admin/kejuaraan/getAllPoomsaeJurusController");
+const {
+  getKelasPoomsaeById,
+} = require("../../controllers/admin/kejuaraan/getKelasPoomsaeByIdController");
+const {
+  updateKelasPoomsae,
+} = require("../../controllers/admin/kejuaraan/updateKelasPoomsaeController");
+const {
+  deleteKelasPoomsae,
+} = require("../../controllers/admin/kejuaraan/deleteKelasPoomsaeController");
 
 /**
  * @swagger
@@ -121,6 +142,114 @@ router.get("/kategori-usia", verifyToken, getAllKategoriUsia);
  *         description: Server error
  */
 router.get("/level-kelas", verifyToken, getAllLevelKelas);
+
+/**
+ * @swagger
+ * /api/admin/poomsae-format:
+ *   get:
+ *     summary: Ambil semua daftar format pertandingan poomsae
+ *     description: |
+ *       Data master untuk dropdown format pertandingan poomsae.
+ *       Contoh format: tunggal, pasangan, beregu putra, beregu putri, freestyle.
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *             example:
+ *               success: true
+ *               message: "Berhasil mengambil data format poomsae"
+ *               data:
+ *                 - id: 1
+ *                   name: "tunggal"
+ *                 - id: 2
+ *                   name: "pasangan"
+ *                 - id: 3
+ *                   name: "beregu putra"
+ *                 - id: 4
+ *                   name: "freestyle"
+ *                 - id: 5
+ *                   name: "beregu putri"
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak
+ *       500:
+ *         description: Server error
+ */
+router.get("/poomsae-format", verifyToken, getAllPoomsaeFormat);
+
+/**
+ * @swagger
+ * /api/admin/poomsae-jurus:
+ *   get:
+ *     summary: Ambil semua daftar jurus poomsae
+ *     description: |
+ *       Data master untuk dropdown jurus poomsae.
+ *       Contoh: Taegeuk Iljang, Koryo, Freestyle, dll.
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *             example:
+ *               success: true
+ *               message: "Berhasil mengambil data jurus poomsae"
+ *               data:
+ *                 - id: 1
+ *                   name: "Taegeuk Iljang"
+ *                 - id: 2
+ *                   name: "Taegeuk Ee Jang"
+ *                 - id: 3
+ *                   name: "Koryo"
+ *                 - id: 4
+ *                   name: "Freestyle"
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak
+ *       500:
+ *         description: Server error
+ */
+router.get("/poomsae-jurus", verifyToken, getAllPoomsaeJurus);
 
 /**
  * @swagger
@@ -1250,5 +1379,635 @@ router.put("/kelas-kyorugi/update/:id", updateKelasKyorugi);
  *         description: Kesalahan server
  */
 router.delete("/kelas-kyorugi/delete/:id", deleteKelasKyorugi);
+
+/**
+ * @swagger
+ * /api/admin/kelas-poomsae:
+ *   post:
+ *     summary: Tambah kelas poomsae baru (master data)
+ *     description: |
+ *       Menambahkan kelas pertandingan Poomsae ke dalam sistem.
+ *
+ *       **Aturan:**
+ *       - Kombinasi `kategori_usia_id`, `level_kelas_id`, `jurus_id`, `format_id`, dan `gender` harus unik.
+ *       - `gender` boleh `null` untuk format campuran (misalnya pasangan atau freestyle).
+ *     tags:
+ *       - Admin - Kelas Poomsae
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - kategori_usia_id
+ *               - level_kelas_id
+ *               - jurus_id
+ *               - format_id
+ *             properties:
+ *               kategori_usia_id:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: |
+ *                   ID kategori usia.
+ *
+ *                   Contoh:
+ *                   - 1 = Pra-Cadet
+ *                   - 2 = Cadet
+ *                   - 3 = Junior
+ *                   - 4 = Senior
+ *                 example: 2
+ *
+ *               level_kelas_id:
+ *                 type: integer
+ *                 minimum: 1
+ *                 description: |
+ *                   ID level kelas.
+ *
+ *                   Contoh:
+ *                   - 1 = Festival
+ *                   - 2 = Pemula
+ *                   - 3 = Prestasi
+ *                 example: 2
+ *
+ *               gender:
+ *                 type: string
+ *                 nullable: true
+ *                 enum:
+ *                   - putra
+ *                   - putri
+ *                 description: |
+ *                   Jenis kelamin peserta.
+ *
+ *                   - Isi "putra" atau "putri" jika format membutuhkan gender spesifik.
+ *                   - Kosongkan atau kirim null untuk format campuran seperti pasangan atau freestyle team.
+ *                 example: putra
+ *
+ *               jurus_id:
+ *                 type: integer
+ *                 description: |
+ *                   ID jurus dari tabel poomsae_jurus.
+ *
+ *                   Contoh:
+ *                   - Taegeuk Iljang
+ *                   - Taegeuk Yijang
+ *                   - Koryo
+ *                   - Freestyle
+ *                 example: 1
+ *
+ *               format_id:
+ *                 type: integer
+ *                 description: |
+ *                   ID format dari tabel poomsae_format.
+ *
+ *                   Contoh:
+ *                   - 1 = Tunggal
+ *                   - 2 = Pasangan
+ *                   - 3 = Beregu Putra
+ *                   - 4 = Freestyle
+ *                   - 5 = Beregu Putri
+ *                 example: 1
+ *
+ *           example:
+ *             kategori_usia_id: 2
+ *             level_kelas_id: 2
+ *             gender: putra
+ *             jurus_id: 1
+ *             format_id: 1
+ *
+ *     responses:
+ *       201:
+ *         description: Kelas poomsae berhasil ditambahkan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     kategori_usia_id:
+ *                       type: integer
+ *                     level_kelas_id:
+ *                       type: integer
+ *                     gender:
+ *                       type: string
+ *                       nullable: true
+ *                     jurus_id:
+ *                       type: integer
+ *                     format_id:
+ *                       type: integer
+ *             example:
+ *               message: Kelas poomsae berhasil ditambahkan
+ *               data:
+ *                 id: 5
+ *                 kategori_usia_id: 2
+ *                 level_kelas_id: 2
+ *                 gender: putra
+ *                 jurus_id: 1
+ *                 format_id: 1
+ *
+ *       400:
+ *         description: Validasi gagal (input tidak lengkap atau format salah)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               missingField:
+ *                 summary: Jurus tidak valid
+ *                 value:
+ *                   message: ID jurus tidak valid
+ *
+ *               invalidGender:
+ *                 summary: Gender tidak valid
+ *                 value:
+ *                   message: Gender harus putra atau putri (atau kosongkan jika format campuran)
+ *
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *
+ *       404:
+ *         description: Referensi tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             examples:
+ *               jurusNotFound:
+ *                 summary: Jurus tidak ditemukan
+ *                 value:
+ *                   message: Jurus tidak ditemukan
+ *
+ *       409:
+ *         description: Kombinasi data sudah ada
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               message: Kelas poomsae dengan kombinasi tersebut sudah ada
+ *
+ *       500:
+ *         description: Kesalahan server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.post("/kelas-poomsae", verifyToken, createKelasPoomsae);
+
+/**
+ * @swagger
+ * /api/admin/kelas-poomsae:
+ *   get:
+ *     summary: Ambil semua data kelas poomsae dengan pagination dan filter
+ *     description: |
+ *       Mendukung filter berdasarkan:
+ *       - `gender` (putra/putri)
+ *       - `kategori_usia_id`
+ *       - `level_kelas_id`
+ *       - `jurus_id`
+ *       - `format_id`
+ *       - Pencarian teks pada `jurus.name` atau `format.name`
+ *     tags: [Admin - Kelas Poomsae]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Halaman
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10, 25, 50, 75, 100, 200]
+ *           default: 10
+ *         description: Jumlah data per halaman
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Cari berdasarkan nama jurus atau format (case-insensitive, partial match)
+ *         example: "taegeuk"
+ *       - in: query
+ *         name: gender
+ *         schema:
+ *           type: string
+ *           enum: [putra, putri]
+ *         description: Filter gender (kosongkan untuk menampilkan semua)
+ *       - in: query
+ *         name: kategori_usia_id
+ *         schema:
+ *           type: integer
+ *         description: ID kategori usia (1:Pra-Cadet, 2:Cadet, 3:Junior, 4:Senior)
+ *         example: 2
+ *       - in: query
+ *         name: level_kelas_id
+ *         schema:
+ *           type: integer
+ *           enum: [1,2,3]
+ *         description: ID level kelas (1:festival, 2:pemula, 3:prestasi)
+ *       - in: query
+ *         name: jurus_id
+ *         schema:
+ *           type: integer
+ *         description: ID jurus (dari tabel poomsae_jurus)
+ *       - in: query
+ *         name: format_id
+ *         schema:
+ *           type: integer
+ *         description: ID format (1:tunggal, 2:pasangan, 3:beregu putra, 4:freestyle, 5:beregu putri)
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       gender:
+ *                         type: string
+ *                         nullable: true
+ *                       kategori_usia:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                       level_kelas:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                       jurus:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                       format:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                 meta:
+ *                   type: object
+ *                   properties:
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         current_page:
+ *                           type: integer
+ *                         per_page:
+ *                           type: integer
+ *                         total_page:
+ *                           type: integer
+ *                         total_data:
+ *                           type: integer
+ *                         has_next:
+ *                           type: boolean
+ *                         has_prev:
+ *                           type: boolean
+ *             example:
+ *               success: true
+ *               message: "Berhasil mengambil data kelas poomsae"
+ *               data:
+ *                 - id: 1
+ *                   gender: "putra"
+ *                   kategori_usia:
+ *                     id: 2
+ *                     nama: "Cadet"
+ *                   level_kelas:
+ *                     id: 1
+ *                     nama: "festival"
+ *                   jurus:
+ *                     id: 1
+ *                     nama: "Taegeuk Iljang"
+ *                   format:
+ *                     id: 1
+ *                     nama: "tunggal"
+ *               meta:
+ *                 pagination:
+ *                   current_page: 1
+ *                   per_page: 10
+ *                   total_page: 1
+ *                   total_data: 5
+ *                   has_next: false
+ *                   has_prev: false
+ *       400:
+ *         description: Parameter tidak valid (misal gender salah)
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       500:
+ *         description: Kesalahan server
+ */
+router.get("/kelas-poomsae", verifyToken, getAllKelasPoomsae);
+
+/**
+ * @swagger
+ * /api/admin/kelas-poomsae/{id}:
+ *   get:
+ *     summary: Ambil detail kelas poomsae berdasarkan ID
+ *     description: Mengembalikan informasi lengkap satu kelas poomsae termasuk referensi ke kategori usia, level kelas, jurus, dan format.
+ *     tags: [Admin - Kelas Poomsae]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas poomsae
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: Detail kelas poomsae berhasil diambil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     gender:
+ *                       type: string
+ *                       nullable: true
+ *                     kategori_usia:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         nama:
+ *                           type: string
+ *                     level_kelas:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         nama:
+ *                           type: string
+ *                     jurus:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         nama:
+ *                           type: string
+ *                     format:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         nama:
+ *                           type: string
+ *             example:
+ *               message: "Detail kelas poomsae"
+ *               data:
+ *                 id: 1
+ *                 gender: "putra"
+ *                 kategori_usia:
+ *                   id: 2
+ *                   nama: "Cadet"
+ *                 level_kelas:
+ *                   id: 1
+ *                   nama: "festival"
+ *                 jurus:
+ *                   id: 1
+ *                   nama: "Taegeuk Iljang"
+ *                 format:
+ *                   id: 1
+ *                   nama: "tunggal"
+ *       400:
+ *         description: ID tidak valid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               message: "ID tidak valid"
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Kelas poomsae tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               message: "Kelas poomsae tidak ditemukan"
+ *       500:
+ *         description: Kesalahan server
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.get("/kelas-poomsae/:id", verifyToken, getKelasPoomsaeById);
+
+/**
+ * @swagger
+ * /api/admin/kelas-poomsae/{id}:
+ *   put:
+ *     summary: Update data kelas poomsae
+ *     description: |
+ *       Memperbarui data kelas poomsae berdasarkan ID.
+ *       - Semua field bersifat opsional (hanya field yang dikirim akan diubah).
+ *       - Kombinasi `kategori_usia_id`, `level_kelas_id`, `jurus_id`, `format_id`, dan `gender` harus unik (tidak boleh bentrok dengan kelas lain selain dirinya sendiri).
+ *       - `gender` boleh `null` untuk format campuran (contoh: pasangan atau freestyle).
+ *     tags: [Admin - Kelas Poomsae]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas poomsae yang akan diupdate
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               kategori_usia_id:
+ *                 type: integer
+ *                 description: ID kategori usia (1:Pra-Cadet, 2:Cadet, 3:Junior, 4:Senior)
+ *                 minimum: 1
+ *               level_kelas_id:
+ *                 type: integer
+ *                 description: ID level kelas (1:festival, 2:pemula, 3:prestasi)
+ *                 minimum: 1
+ *               gender:
+ *                 type: string
+ *                 enum: [putra, putri]
+ *                 nullable: true
+ *                 description: Gender (kosongkan/null untuk format campuran)
+ *               jurus_id:
+ *                 type: integer
+ *                 description: ID jurus dari tabel poomsae_jurus
+ *                 minimum: 1
+ *               format_id:
+ *                 type: integer
+ *                 description: ID format dari tabel poomsae_format
+ *                 minimum: 1
+ *           example:
+ *             gender: "putri"
+ *             jurus_id: 2
+ *             format_id: 1
+ *     responses:
+ *       200:
+ *         description: Kelas poomsae berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     gender:
+ *                       type: string
+ *                       nullable: true
+ *                     kategori_usia_id:
+ *                       type: integer
+ *                     level_kelas_id:
+ *                       type: integer
+ *                     jurus_id:
+ *                       type: integer
+ *                     format_id:
+ *                       type: integer
+ *             example:
+ *               success: true
+ *               message: "Kelas poomsae berhasil diperbarui"
+ *               data:
+ *                 id: 1
+ *                 gender: "putri"
+ *                 kategori_usia_id: 2
+ *                 level_kelas_id: 2
+ *                 jurus_id: 2
+ *                 format_id: 1
+ *       400:
+ *         description: Validasi gagal (ID tidak valid, gender salah, dll)
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Kelas poomsae tidak ditemukan / referensi (kategori usia, level, jurus, format) tidak ditemukan
+ *       409:
+ *         description: Duplikasi data (kombinasi sudah ada pada record lain)
+ *       500:
+ *         description: Kesalahan server
+ */
+router.put("/kelas-poomsae/:id", verifyToken, updateKelasPoomsae);
+
+/**
+ * @swagger
+ * /api/admin/kelas-poomsae/{id}:
+ *   delete:
+ *     summary: Hapus kelas poomsae (hanya jika belum digunakan di kejuaraan)
+ *     description: |
+ *       Menghapus data kelas poomsae secara permanen.
+ *       **Tidak dapat dihapus** jika sudah direferensikan oleh `kelas_kejuaraan` dengan tipe `poomsae`.
+ *     tags: [Admin - Kelas Poomsae]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas poomsae yang akan dihapus
+ *         example: 5
+ *     responses:
+ *       200:
+ *         description: Kelas poomsae berhasil dihapus
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *             example:
+ *               message: "Kelas poomsae berhasil dihapus"
+ *       400:
+ *         description: ID tidak valid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               message: "ID tidak valid"
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Kelas poomsae tidak ditemukan
+ *       409:
+ *         description: Kelas poomsae sedang digunakan di kejuaraan, tidak dapat dihapus
+ *       500:
+ *         description: Kesalahan server
+ */
+router.delete("/kelas-poomsae/:id", verifyToken, deleteKelasPoomsae);
 
 module.exports = router;

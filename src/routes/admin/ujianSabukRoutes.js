@@ -36,7 +36,6 @@ const {
 const {
   getPesertaUjianByUjianId,
 } = require("../../controllers/admin/ujian/getPesertaUjianByUjianIdController.js");
-<<<<<<< HEAD
 const {
   getDeletedUjianSabuk,
 } = require("../../controllers/admin/ujian/getDeletedUjianSabukController.js");
@@ -46,8 +45,6 @@ const {
 const {
   updateStatusUjianOtomatis,
 } = require("../../controllers/admin/ujian/updateStatusUjianOtomatisController.js");
-=======
->>>>>>> 167c9862bbbe006441739c0edd7d374862ff7442
 
 /**
  * @swagger
@@ -281,7 +278,6 @@ router.get("/ujian-kenaikan-sabuk/terjadwal", verifyToken, getUjianTerjadwal);
 
 /**
  * @swagger
-<<<<<<< HEAD
  * /api/admin/ujian-kenaikan-sabuk/deleted:
  *   get:
  *     summary: Daftar ujian yang telah di-soft-delete (deleted_at tidak null)
@@ -472,8 +468,6 @@ router.get("/ujian-kenaikan-sabuk/selesai", verifyToken, getSelesaiUjianSabuk);
 
 /**
  * @swagger
-=======
->>>>>>> 167c9862bbbe006441739c0edd7d374862ff7442
  * /api/admin/ujian-kenaikan-sabuk/{id}:
  *   get:
  *     summary: Detail ujian kenaikan sabuk (termasuk daftar peserta)
