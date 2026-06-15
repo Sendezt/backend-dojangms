@@ -2,7 +2,7 @@ const db = require("../../../config/database");
 
 /**
  * GET /api/admin/kejuaraan/:id
- * Mengembalikan detail kejuaraan + daftar kelas pertandingan (kyorugi/poomsae)
+ * Mengembalikan detail kejuaraan + daftar kelas pertandingan + aturan usia per kategori
  */
 exports.getKejuaraanById = async (req, res) => {
   const conn = await db.getConnection();
@@ -24,7 +24,20 @@ exports.getKejuaraanById = async (req, res) => {
       return res.status(404).json({ message: "Kejuaraan tidak ditemukan" });
     }
 
-    // 2. Ambil semua kelas_kejuaraan yang terhubung
+    // 2. Ambil aturan usia per kategori untuk kejuaraan ini
+    const [usiaRules] = await conn.query(
+      `SELECT kategori_usia_id, tahun_lahir_min, tahun_lahir_max
+       FROM kejuaraan_kategori_usia
+       WHERE kejuaraan_id = ?`,
+      [kejuaraanId],
+    );
+    const aturanUsia = usiaRules.map((rule) => ({
+      kategori_usia_id: rule.kategori_usia_id,
+      tahun_lahir_min: rule.tahun_lahir_min,
+      tahun_lahir_max: rule.tahun_lahir_max,
+    }));
+
+    // 3. Ambil semua kelas_kejuaraan yang terhubung
     const [kelasKejuaraan] = await conn.query(
       `SELECT id, tipe, kelas_id
        FROM kelas_kejuaraan
@@ -32,21 +45,20 @@ exports.getKejuaraanById = async (req, res) => {
       [kejuaraanId],
     );
 
-    // 3. Loop setiap kelas, ambil detail dari tabel terkait
+    // 4. Loop setiap kelas, ambil detail dari tabel terkait
     const kelasList = [];
     for (const kk of kelasKejuaraan) {
       if (kk.tipe === "kyorugi") {
-        // Ambil detail dari kelas_kyorugi lengkap dengan kategori usia dan level
+        // Detail kelas kyorugi (tanpa min_age/max_age)
         const [kyRows] = await conn.query(
           `SELECT 
              ky.id,
              ky.gender,
              ky.label,
-             ky.batas_berat,
+             ky.batas_bawah,
+             ky.batas_atas,
              ku.id AS kategori_usia_id,
              ku.name AS kategori_usia_nama,
-             ku.min_age,
-             ku.max_age,
              lk.id AS level_kelas_id,
              lk.name AS level_kelas_nama
            FROM kelas_kyorugi ky
@@ -64,12 +76,11 @@ exports.getKejuaraanById = async (req, res) => {
             detail: {
               gender: ky.gender,
               label: ky.label,
-              batas_berat: ky.batas_berat,
+              batas_bawah: ky.batas_bawah,
+              batas_atas: ky.batas_atas,
               kategori_usia: {
                 id: ky.kategori_usia_id,
                 nama: ky.kategori_usia_nama,
-                min_age: ky.min_age,
-                max_age: ky.max_age,
               },
               level_kelas: {
                 id: ky.level_kelas_id,
@@ -79,21 +90,24 @@ exports.getKejuaraanById = async (req, res) => {
           });
         }
       } else if (kk.tipe === "poomsae") {
+        // Detail kelas poomsae dengan jurus dan format dari master
         const [poRows] = await conn.query(
           `SELECT 
              p.id,
              p.gender,
-             p.jurus,
-             p.format,
+             p.jurus_id,
+             pj.name AS jurus_nama,
+             p.format_id,
+             pf.name AS format_nama,
              ku.id AS kategori_usia_id,
              ku.name AS kategori_usia_nama,
-             ku.min_age,
-             ku.max_age,
              lk.id AS level_kelas_id,
              lk.name AS level_kelas_nama
            FROM kelas_poomsae p
            JOIN kategori_usia ku ON ku.id = p.kategori_usia_id
            JOIN level_kelas lk ON lk.id = p.level_kelas_id
+           JOIN poomsae_jurus pj ON pj.id = p.jurus_id
+           JOIN poomsae_format pf ON pf.id = p.format_id
            WHERE p.id = ?`,
           [kk.kelas_id],
         );
@@ -105,13 +119,11 @@ exports.getKejuaraanById = async (req, res) => {
             kelas_id: po.id,
             detail: {
               gender: po.gender,
-              jurus: po.jurus,
-              format: po.format,
+              jurus: po.jurus_nama,
+              format: po.format_nama,
               kategori_usia: {
                 id: po.kategori_usia_id,
                 nama: po.kategori_usia_nama,
-                min_age: po.min_age,
-                max_age: po.max_age,
               },
               level_kelas: {
                 id: po.level_kelas_id,
@@ -123,7 +135,7 @@ exports.getKejuaraanById = async (req, res) => {
       }
     }
 
-    // 4. Format response akhir
+    // 5. Format response akhir
     const response = {
       message: "Berhasil mengambil detail kejuaraan",
       data: {
@@ -134,6 +146,7 @@ exports.getKejuaraanById = async (req, res) => {
         year: kejuaraan.year,
         start_date: kejuaraan.start_date,
         end_date: kejuaraan.end_date,
+        aturan_usia: aturanUsia,
         kelas_pertandingan: kelasList,
       },
     };

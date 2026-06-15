@@ -66,6 +66,33 @@ const {
 const {
   deleteKelasPoomsae,
 } = require("../../controllers/admin/kejuaraan/deleteKelasPoomsaeController");
+const {
+  getCalonPesertaKejuaraan,
+} = require("../../controllers/admin/kejuaraan/getCalonPesertaKejuaraanController");
+const {
+  addBulkPesertaKejuaraan,
+} = require("../../controllers/admin/kejuaraan/addBulkPesertaKejuaraanController");
+const {
+  getPesertaKejuaraanByKelas,
+} = require("../../controllers/admin/kejuaraan/getPesertaKejuaraanByKelasController");
+const {
+  bulkDeletePesertaKejuaraan,
+} = require("../../controllers/admin/kejuaraan/deleteBulkPesertaKejuaraanController");
+const {
+  getKelasKyorugiByKejuaraan,
+} = require("../../controllers/admin/kejuaraan/getKelasKyorugiByKejuaraanController");
+const {
+  getAvailableKelasKyorugi,
+} = require("../../controllers/admin/kejuaraan/getAvailableKelasKyorugiController");
+const {
+  getAvailableKelasPoomsae,
+} = require("../../controllers/admin/kejuaraan/getAvailableKelasPoomsaeController");
+const {
+  getKelasPoomsaeByKejuaraan,
+} = require("../../controllers/admin/kejuaraan/getKelasPoomsaeByKejuaraanController");
+const {
+  deleteKelasKejuaraan,
+} = require("../../controllers/admin/kejuaraan/deleteKelasKejuaraanController");
 
 /**
  * @swagger
@@ -255,7 +282,15 @@ router.get("/poomsae-jurus", verifyToken, getAllPoomsaeJurus);
  * @swagger
  * /api/admin/kejuaraan/create:
  *   post:
- *     summary: Create a new competition (kejuaraan)
+ *     summary: Create a new competition (kejuaraan) with age rules per category
+ *     description: |
+ *       Aturan kategori usia:
+ *       - Setiap kategori usia (Pra-Cadet, Cadet, Junior, Senior) harus didefinisikan satu kali.
+ *       - Minimal satu dari `tahun_lahir_min` atau `tahun_lahir_max` harus diisi.
+ *       - Keduanya boleh diisi untuk membatasi rentang tahun lahir.
+ *       - Jika hanya `tahun_lahir_min` diisi, berarti peserta harus lahir pada atau setelah tahun tersebut.
+ *       - Jika hanya `tahun_lahir_max` diisi, berarti peserta harus lahir pada atau sebelum tahun tersebut (contoh untuk Senior yang hanya membatasi usia maksimal).
+ *       - Jika keduanya diisi, maka `tahun_lahir_min` harus <= `tahun_lahir_max`.
  *     tags: [Admin - Kejuaraan]
  *     security:
  *       - bearerAuth: []
@@ -270,25 +305,82 @@ router.get("/poomsae-jurus", verifyToken, getAllPoomsaeJurus);
  *               - level
  *               - start_date
  *               - end_date
+ *               - kategori_usia_rules
  *             properties:
  *               name:
  *                 type: string
- *                 example: "Kejuaraan Kota 1"
  *               level:
  *                 type: string
  *                 enum: [kota, provinsi, nasional, internasional]
- *                 example: "kota"
  *               location:
  *                 type: string
- *                 example: "GOR Kota Salatiga"
  *               start_date:
  *                 type: string
  *                 format: date
- *                 example: "2026-06-10"
  *               end_date:
  *                 type: string
  *                 format: date
- *                 example: "2026-06-12"
+ *               kategori_usia_rules:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required:
+ *                     - kategori_usia_id
+ *                   properties:
+ *                     kategori_usia_id:
+ *                       type: integer
+ *                       description: ID kategori usia (1:Pra-Cadet, 2:Cadet, 3:Junior, 4:Senior)
+ *                     tahun_lahir_min:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: Batas tahun lahir minimal (inklusif). Opsional, minimal salah satu dari min/max harus diisi.
+ *                     tahun_lahir_max:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: Batas tahun lahir maksimal (inklusif). Opsional, minimal salah satu dari min/max harus diisi.
+ *           examples:
+ *             withBoth:
+ *               summary: Rentang penuh (Pra-Cadet, Cadet, Junior)
+ *               value:
+ *                 name: "Kejuaraan Kota 1"
+ *                 level: "kota"
+ *                 location: "GOR Kota Salatiga"
+ *                 start_date: "2026-07-01"
+ *                 end_date: "2026-07-03"
+ *                 kategori_usia_rules:
+ *                   - kategori_usia_id: 1
+ *                     tahun_lahir_min: 2016
+ *                     tahun_lahir_max: 2018
+ *                   - kategori_usia_id: 2
+ *                     tahun_lahir_min: 2012
+ *                     tahun_lahir_max: 2015
+ *                   - kategori_usia_id: 3
+ *                     tahun_lahir_min: 2008
+ *                     tahun_lahir_max: 2011
+ *                   - kategori_usia_id: 4
+ *                     tahun_lahir_max: 2007
+ *             withOnlyMax:
+ *               summary: Hanya batas maksimal (misal Senior)
+ *               value:
+ *                 name: "Kejuaraan Senior Only"
+ *                 level: "provinsi"
+ *                 location: "GOR Provinsi"
+ *                 start_date: "2026-08-01"
+ *                 end_date: "2026-08-02"
+ *                 kategori_usia_rules:
+ *                   - kategori_usia_id: 4
+ *                     tahun_lahir_max: 2006
+ *             withOnlyMin:
+ *               summary: Hanya batas minimal
+ *               value:
+ *                 name: "Kejuaraan Junior Minimum"
+ *                 level: "nasional"
+ *                 location: "GOR Nasional"
+ *                 start_date: "2026-09-01"
+ *                 end_date: "2026-09-03"
+ *                 kategori_usia_rules:
+ *                   - kategori_usia_id: 3
+ *                     tahun_lahir_min: 2009
  *     responses:
  *       201:
  *         description: Kejuaraan berhasil dibuat
@@ -310,7 +402,6 @@ router.get("/poomsae-jurus", verifyToken, getAllPoomsaeJurus);
  *                       type: string
  *                     location:
  *                       type: string
- *                       nullable: true
  *                     year:
  *                       type: integer
  *                     start_date:
@@ -319,20 +410,27 @@ router.get("/poomsae-jurus", verifyToken, getAllPoomsaeJurus);
  *                     end_date:
  *                       type: string
  *                       format: date
+ *                     kategori_usia_rules:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           kategori_usia_id:
+ *                             type: integer
+ *                           tahun_lahir_min:
+ *                             type: integer
+ *                             nullable: true
+ *                           tahun_lahir_max:
+ *                             type: integer
+ *                             nullable: true
  *       400:
- *         description: Validasi gagal (input tidak lengkap, format salah, atau tanggal tidak valid)
+ *         description: Validasi gagal (input tidak lengkap, aturan usia tidak valid, dll)
  *       401:
- *         description: Token tidak valid atau tidak ditemukan
+ *         description: Token tidak valid
  *       403:
  *         description: Akses ditolak (bukan admin)
  *       409:
- *         description: Duplikasi data - kejuaraan dengan nama dan tahun yang sama sudah ada
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               message: "Tidak dapat membuat kejuaraan karena bentrok dengan kejuaraan \"Kejuaraan Kota 2\" pada tanggal 2026-06-11 s.d 2026-06-13 di lokasi yang sama."
+ *         description: Bentrok tanggal/lokasi dengan kejuaraan lain
  *       500:
  *         description: Kesalahan server
  */
@@ -481,7 +579,7 @@ router.get("/kejuaraan/getall", verifyToken, getAllKejuaraan);
  * @swagger
  * /api/admin/kejuaraan/update/{id}:
  *   put:
- *     summary: Update data kejuaraan
+ *     summary: Update data kejuaraan (termasuk aturan kategori usia)
  *     tags: [Admin - Kejuaraan]
  *     security:
  *       - bearerAuth: []
@@ -502,28 +600,42 @@ router.get("/kejuaraan/getall", verifyToken, getAllKejuaraan);
  *             properties:
  *               name:
  *                 type: string
- *                 description: Nama kejuaraan (opsional)
- *                 example: "Kejuaraan Kota 1 Update"
  *               level:
  *                 type: string
  *                 enum: [kota, provinsi, nasional, internasional]
- *                 description: Level kejuaraan (opsional)
  *               location:
  *                 type: string
- *                 description: Lokasi (opsional)
  *               start_date:
  *                 type: string
  *                 format: date
- *                 description: Tanggal mulai baru (opsional)
  *               end_date:
  *                 type: string
  *                 format: date
- *                 description: Tanggal selesai baru (opsional)
+ *               kategori_usia_rules:
+ *                 type: array
+ *                 description: Aturan kategori usia (opsional). Jika dikirim, akan mengganti semua aturan yang ada.
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     kategori_usia_id:
+ *                       type: integer
+ *                     tahun_lahir_min:
+ *                       type: integer
+ *                       nullable: true
+ *                     tahun_lahir_max:
+ *                       type: integer
+ *                       nullable: true
  *           example:
  *             name: "Kejuaraan Kota 1 Revisi"
  *             start_date: "2026-07-01"
  *             end_date: "2026-07-03"
  *             location: "GOR Baru"
+ *             kategori_usia_rules:
+ *               - kategori_usia_id: 1
+ *                 tahun_lahir_min: 2016
+ *                 tahun_lahir_max: 2018
+ *               - kategori_usia_id: 4
+ *                 tahun_lahir_max: 2007
  *     responses:
  *       200:
  *         description: Kejuaraan berhasil diperbarui
@@ -545,7 +657,6 @@ router.get("/kejuaraan/getall", verifyToken, getAllKejuaraan);
  *                       type: string
  *                     location:
  *                       type: string
- *                       nullable: true
  *                     year:
  *                       type: integer
  *                     start_date:
@@ -554,8 +665,21 @@ router.get("/kejuaraan/getall", verifyToken, getAllKejuaraan);
  *                     end_date:
  *                       type: string
  *                       format: date
+ *                     kategori_usia_rules:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           kategori_usia_id:
+ *                             type: integer
+ *                           tahun_lahir_min:
+ *                             type: integer
+ *                             nullable: true
+ *                           tahun_lahir_max:
+ *                             type: integer
+ *                             nullable: true
  *       400:
- *         description: Validasi gagal (input tidak valid, tanggal sudah lewat, atau end_date < start_date)
+ *         description: Validasi gagal
  *       401:
  *         description: Token tidak valid
  *       403:
@@ -563,7 +687,7 @@ router.get("/kejuaraan/getall", verifyToken, getAllKejuaraan);
  *       404:
  *         description: Kejuaraan tidak ditemukan
  *       409:
- *         description: Konflik - bentrok tanggal dan lokasi dengan kejuaraan lain
+ *         description: Bentrok tanggal/lokasi
  *       500:
  *         description: Kesalahan server
  */
@@ -2009,5 +2133,494 @@ router.put("/kelas-poomsae/:id", verifyToken, updateKelasPoomsae);
  *         description: Kesalahan server
  */
 router.delete("/kelas-poomsae/:id", verifyToken, deleteKelasPoomsae);
+
+/**
+ * @swagger
+ * /api/admin/kejuaraan/{kejuaraanId}/kelas-kejuaraan/{kelasKejuaraanId}/calon-peserta:
+ *   get:
+ *     summary: Daftar calon peserta yang dapat didaftarkan ke suatu kelas kejuaraan
+ *     description: |
+ *       Mengembalikan daftar murid yang memenuhi syarat untuk didaftarkan ke kelas kejuaraan tertentu.
+ *       Syarat:
+ *       - Status user `active` dan role `murid`
+ *       - Belum terdaftar di kelas kejuaraan tersebut (belum ada di `peserta_kejuaraan` dengan `kelas_kejuaraan_id` yang sama)
+ *       - Memenuhi aturan usia berdasarkan `kejuaraan_kategori_usia` untuk kategori usia kelas tersebut
+ *       - (Opsional) Pencarian berdasarkan nama, email, atau telepon
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kejuaraanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kejuaraan
+ *         example: 1
+ *       - in: path
+ *         name: kelasKejuaraanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas_kejuaraan (relasi kejuaraan dengan kelas pertandingan)
+ *         example: 5
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Halaman
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10, 25, 50, 75, 100, 200]
+ *           default: 10
+ *         description: Jumlah data per halaman
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Pencarian nama, email, atau telepon murid
+ *         example: "budi"
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil calon peserta
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       phone:
+ *                         type: string
+ *                       tanggal_lahir:
+ *                         type: string
+ *                         format: date
+ *                       tahun_lahir:
+ *                         type: integer
+ *                       sabuk_saat_ini:
+ *                         type: object
+ *                         nullable: true
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                           order:
+ *                             type: integer
+ *                 meta:
+ *                   type: object
+ *                   properties:
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         current_page:
+ *                           type: integer
+ *                         per_page:
+ *                           type: integer
+ *                         total_page:
+ *                           type: integer
+ *                         total_data:
+ *                           type: integer
+ *                         has_next:
+ *                           type: boolean
+ *                         has_prev:
+ *                           type: boolean
+ *             example:
+ *               success: true
+ *               message: "Calon peserta ditemukan"
+ *               data:
+ *                 - id: 26
+ *                   name: "Budi Handoko"
+ *                   email: "budi@example.com"
+ *                   phone: "08123456789"
+ *                   tanggal_lahir: "2010-05-10"
+ *                   tahun_lahir: 2010
+ *                   sabuk_saat_ini:
+ *                     id: 5
+ *                     nama: "Hijau Strip Biru"
+ *                     order: 5
+ *               meta:
+ *                 pagination:
+ *                   current_page: 1
+ *                   per_page: 10
+ *                   total_page: 1
+ *                   total_data: 1
+ *                   has_next: false
+ *                   has_prev: false
+ *       400:
+ *         description: Parameter tidak valid (ID kejuaraan/kelasKejuaraanId tidak valid, atau kejuaraan belum memiliki aturan usia)
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: Kelas kejuaraan tidak ditemukan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.get(
+  "/kejuaraan/:kejuaraanId/kelas-kejuaraan/:kelasKejuaraanId/calon-peserta",
+  verifyToken,
+  getCalonPesertaKejuaraan,
+);
+
+/**
+ * @swagger
+ * /api/admin/kejuaraan/{kejuaraanId}/kelas-kejuaraan/{kelasKejuaraanId}/peserta/bulk:
+ *   post:
+ *     summary: Tambah banyak peserta ke suatu kelas kejuaraan sekaligus
+ *     description: |
+ *       Menerima array user_id, kemudian memvalidasi satu per satu:
+ *       - User harus memiliki role murid dan status active.
+ *       - Harus memenuhi aturan usia (tahun lahir) untuk kategori kelas tersebut.
+ *       - Belum terdaftar di kelas kejuaraan yang sama.
+ *       - Sabuk peserta saat pendaftaran disimpan.
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kejuaraanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kejuaraan
+ *         example: 1
+ *       - in: path
+ *         name: kelasKejuaraanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas_kejuaraan (relasi)
+ *         example: 5
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - peserta_list
+ *             properties:
+ *               peserta_list:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *                 description: Daftar ID user (murid)
+ *                 example: [26, 22, 10]
+ *     responses:
+ *       201:
+ *         description: Proses bulk selesai (beberapa mungkin gagal)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 success_count:
+ *                   type: integer
+ *                 error_count:
+ *                   type: integer
+ *                 success:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       user_id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *                       belt_id:
+ *                         type: integer
+ *                 errors:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       user_id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *                       error:
+ *                         type: string
+ *       400:
+ *         description: Input tidak valid atau kejuaraan belum memiliki aturan usia
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak
+ *       404:
+ *         description: Kejuaraan atau kelas kejuaraan tidak ditemukan
+ *       500:
+ *         description: Kesalahan server
+ */
+router.post(
+  "/kejuaraan/:kejuaraanId/kelas-kejuaraan/:kelasKejuaraanId/peserta/bulk",
+  verifyToken,
+  addBulkPesertaKejuaraan,
+);
+
+/**
+ * @swagger
+ * /api/admin/kejuaraan/kelas-kejuaraan/{kelasKejuaraanId}/peserta:
+ *   get:
+ *     summary: Daftar peserta yang sudah terdaftar di suatu kelas kejuaraan
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kelasKejuaraanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas_kejuaraan
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10,25,50,75,100,200]
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Cari berdasarkan nama, email, atau telepon
+ *       - in: query
+ *         name: hasil
+ *         schema:
+ *           type: string
+ *           enum: [juara1, juara2, juara3, harapan1, harapan2, peserta]
+ *         description: Filter berdasarkan hasil
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       400:
+ *         description: Parameter tidak valid
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak
+ *       404:
+ *         description: Kelas kejuaraan tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  "/kejuaraan/kelas-kejuaraan/:kelasKejuaraanId/peserta",
+  verifyToken,
+  getPesertaKejuaraanByKelas,
+);
+
+/**
+ * @swagger
+ * /api/admin/kejuaraan/kelas-kejuaraan/{kelasKejuaraanId}/peserta/bulk:
+ *   delete:
+ *     summary: Hapus banyak peserta dari suatu kelas kejuaraan (hard delete)
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kelasKejuaraanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - user_ids
+ *             properties:
+ *               user_ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *     responses:
+ *       200:
+ *         description: Berhasil menghapus (sebagian mungkin tidak ditemukan)
+ *       400:
+ *         description: Input tidak valid
+ *       404:
+ *         description: Kelas kejuaraan tidak ditemukan atau tidak ada peserta yang dihapus
+ *       500:
+ *         description: Server error
+ */
+router.delete(
+  "/kejuaraan/kelas-kejuaraan/:kelasKejuaraanId/peserta/bulk",
+  verifyToken,
+  bulkDeletePesertaKejuaraan,
+);
+
+/**
+ * @swagger
+ * /api/admin/kejuaraan/{kejuaraanId}/kelas-kyorugi:
+ *   get:
+ *     summary: Daftar kelas kyorugi yang sudah terdaftar di kejuaraan
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kejuaraanId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       404:
+ *         description: Kejuaraan tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  "/kejuaraan/:kejuaraanId/kelas-kyorugi",
+  verifyToken,
+  getKelasKyorugiByKejuaraan,
+);
+
+/**
+ * @swagger
+ * /api/admin/kejuaraan/{kejuaraanId}/kelas-poomsae:
+ *   get:
+ *     summary: Daftar kelas poomsae yang sudah terdaftar di kejuaraan
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kejuaraanId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       404:
+ *         description: Kejuaraan tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  "/kejuaraan/:kejuaraanId/kelas-poomsae",
+  verifyToken,
+  getKelasPoomsaeByKejuaraan,
+);
+
+/**
+ * @swagger
+ * /api/admin/kejuaraan/{kejuaraanId}/kelas-kyorugi/available:
+ *   get:
+ *     summary: Daftar kelas kyorugi yang belum terdaftar di kejuaraan
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kejuaraanId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       404:
+ *         description: Kejuaraan tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  "/kejuaraan/:kejuaraanId/kelas-kyorugi/available",
+  verifyToken,
+  getAvailableKelasKyorugi,
+);
+
+/**
+ * @swagger
+ * /api/admin/kejuaraan/{kejuaraanId}/kelas-poomsae/available:
+ *   get:
+ *     summary: Daftar kelas poomsae yang belum terdaftar di kejuaraan
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kejuaraanId
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       404:
+ *         description: Kejuaraan tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  "/kejuaraan/:kejuaraanId/kelas-poomsae/available",
+  verifyToken,
+  getAvailableKelasPoomsae,
+);
+
+/**
+ * @swagger
+ * /api/admin/kejuaraan/kelas-kejuaraan/{kelasKejuaraanId}:
+ *   delete:
+ *     summary: Hapus kelas kejuaraan (kyorugi/poomsae) dari suatu kejuaraan
+ *     description: Menghapus relasi kelas dengan kejuaraan. Hanya bisa dihapus jika tidak ada peserta yang terdaftar.
+ *     tags: [Admin - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kelasKejuaraanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID dari tabel kelas_kejuaraan
+ *     responses:
+ *       200:
+ *         description: Kelas kejuaraan berhasil dihapus
+ *       400:
+ *         description: ID tidak valid
+ *       401:
+ *         description: Token tidak valid
+ *       403:
+ *         description: Akses ditolak
+ *       404:
+ *         description: Kelas kejuaraan tidak ditemukan
+ *       409:
+ *         description: Tidak dapat dihapus karena masih memiliki peserta
+ *       500:
+ *         description: Server error
+ */
+router.delete(
+  "/kejuaraan/kelas-kejuaraan/delete/:kelasKejuaraanId",
+  verifyToken,
+  deleteKelasKejuaraan,
+);
 
 module.exports = router;
