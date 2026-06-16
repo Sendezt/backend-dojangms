@@ -1,4 +1,6 @@
-const app = require('./src/app');
+require("./src/services/whatsapp.service");
+
+const app = require("./src/app");
 
 const PORT = process.env.PORT || 3000;
 
