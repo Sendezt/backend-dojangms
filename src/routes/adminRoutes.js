@@ -1009,23 +1009,73 @@ router.get("/get/roles", getAllRoles);
  * @swagger
  * /api/admin/update/roles/{id}:
  *   patch:
- *     summary: Update user roles
+ *     summary: Update roles (hak akses) user
+ *     description: Mengganti seluruh roles user dengan daftar roles baru. Hanya dapat diakses oleh admin.
  *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
- *           type: string
+ *           type: integer
+ *         description: ID user yang akan diupdate roles-nya
+ *         example: 1
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - roles
+ *             properties:
+ *               roles:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [murid, pelatih, admin]
+ *                 description: Daftar role baru (akan menggantikan semua role lama)
+ *                 example: ["murid", "pelatih"]
  *     responses:
  *       200:
- *         description: Success
+ *         description: Role user berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     user_id:
+ *                       type: integer
+ *                     roles:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *             example:
+ *               message: "Role user berhasil diperbarui"
+ *               data:
+ *                 user_id: 1
+ *                 roles: ["murid", "pelatih"]
+ *       400:
+ *         description: Validasi gagal (roles bukan array kosong, atau role name tidak valid)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Token tidak valid atau tidak ditemukan
+ *       403:
+ *         description: Akses ditolak (bukan admin)
+ *       404:
+ *         description: User tidak ditemukan
+ *       500:
+ *         description: Kesalahan server
  */
 router.patch("/update/roles/:id", updateUserRoles);
 

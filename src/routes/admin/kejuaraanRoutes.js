@@ -93,6 +93,9 @@ const {
 const {
   deleteKelasKejuaraan,
 } = require("../../controllers/admin/kejuaraan/deleteKelasKejuaraanController");
+const {
+  getHasilKejuaraan,
+} = require("../../controllers/admin/kejuaraan/getHasilKejuaraanController");
 
 /**
  * @swagger
@@ -2622,5 +2625,29 @@ router.delete(
   verifyToken,
   deleteKelasKejuaraan,
 );
+
+/**
+ * @swagger
+ * /api/admin/kejuaraan/{kejuaraanId}/hasil:
+ *   get:
+ *     summary: Hasil akhir kejuaraan (total medali & daftar peraih medali)
+ *     tags: [Admin - Prestasi]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kejuaraanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       404:
+ *         description: Kejuaraan tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.get("/kejuaraan/:kejuaraanId/hasil", verifyToken, getHasilKejuaraan);
 
 module.exports = router;
