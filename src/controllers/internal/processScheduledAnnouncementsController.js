@@ -4,12 +4,12 @@ const { sendAnnouncement } = require("../../helpers/announcementHelper");
 
 exports.processScheduledAnnouncements = async (req, res) => {
   const secret = req.headers["x-internal-secret"];
-  console.log(
-    "[Internal] Received request, secret:",
-    secret ? "present" : "missing",
-  );
+  // console.log(
+  //   "[Internal] Received request, secret:",
+  //   secret ? "present" : "missing",
+  // );
   if (!secret || secret !== process.env.INTERNAL_API_SECRET) {
-    console.log("[Internal] Secret mismatch or missing");
+    // console.log("[Internal] Secret mismatch or missing");
     return res.status(403).json({ message: "Forbidden" });
   }
 
@@ -23,15 +23,15 @@ exports.processScheduledAnnouncements = async (req, res) => {
    FROM pengumuman 
    WHERE status = 'terjadwal' AND scheduled_at <= NOW()`,
     );
-    console.log(
-      `[Internal] Found ${announcements.length} announcements to process`,
-    );
+    // console.log(
+    //   `[Internal] Found ${announcements.length} announcements to process`,
+    // );
 
     let processed = 0;
     for (const ann of announcements) {
-      console.log(
-        `[Internal] Processing announcement ID ${ann.id}, scheduled at ${ann.scheduled_at}`,
-      );
+      // console.log(
+      //   `[Internal] Processing announcement ID ${ann.id}, scheduled at ${ann.scheduled_at}`,
+      // );
       await conn.beginTransaction();
       try {
         // Ubah status menjadi terkirim

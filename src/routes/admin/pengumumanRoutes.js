@@ -5,7 +5,7 @@ const { authorizeRole } = require("../../middlewares/roleAdmin");
 
 const {
   getGroups,
-} = require("../../controllers/admin/pengumuman/whatsappContoller");
+} = require("../../controllers/admin/pengumuman/whatsappController");
 const {
   sendTest,
 } = require("../../controllers/admin/pengumuman/tesSendController");
@@ -27,44 +27,41 @@ const {
 const {
   getAllWhatsappGroups,
 } = require("../../controllers/admin/pengumuman/getAllWhatsappGroupsController");
+const {
+  sendOrScheduleAnnouncement,
+} = require("../../controllers/admin/pengumuman/sendOrScheduleAnnouncementController");
+const {
+  retryWhatsapp,
+} = require("../../controllers/admin/pengumuman/retryWhatsappController");
+const {
+  updatePengumuman,
+} = require("../../controllers/admin/pengumuman/updatePengumumanController");
+const {
+  deletePengumuman,
+} = require("../../controllers/admin/pengumuman/deletePengumumanController");
+const {
+  disableWhatsappGroup,
+} = require("../../controllers/admin/pengumuman/deleteSoftDeleteWhatsappGroupController");
+const {
+  updateWhatsappGroup,
+} = require("../../controllers/admin/pengumuman/updateWhatsappGroupController");
+const {
+  getWhatsappGroupById,
+} = require("../../controllers/admin/pengumuman/getWhatsappGroupByIdController");
 
 /**
  * @swagger
  * /api/admin/whatsapp/groups:
  *   get:
- *     tags: [Admin - Pengumuman]
- *     summary: Mendapatkan daftar grup WhatsApp
- *     description: Mengambil seluruh grup WhatsApp yang diikuti oleh akun bot WhatsApp yang sedang aktif.
+ *     tags:
+ *       - Admin - Pengumuman
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Berhasil mengambil daftar grup
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                     description: ID grup WhatsApp
- *                     example: "120363123456789@g.us"
- *                   name:
- *                     type: string
- *                     description: Nama grup WhatsApp
- *                     example: "Pelatih Dojang"
- *       500:
- *         description: Gagal mengambil daftar grup
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Failed to get groups"
+ *         description: OK
  */
-router.get("/whatsapp/groups", getGroups);
+router.get("/whatsapp/groups", verifyToken, getGroups);
 
 /**
  * @swagger
@@ -194,6 +191,103 @@ router.post("/whatsapp/groups/bulk", verifyToken, addBulkWhatsappGroup);
  *         description: Server error
  */
 router.get("/whatsapp-groups/terdaftar", verifyToken, getAllWhatsappGroups);
+
+/**
+ * @swagger
+ * /api/admin/whatsapp-groups/{id}:
+ *   get:
+ *     summary: Detail grup WhatsApp berdasarkan ID
+ *     tags: [Admin - WhatsApp]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       404:
+ *         description: Grup tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.get("/whatsapp-groups/:id", verifyToken, getWhatsappGroupById);
+
+/**
+ * @swagger
+ * /api/admin/whatsapp-groups/{id}:
+ *   put:
+ *     summary: Update data grup WhatsApp
+ *     tags: [Admin - WhatsApp]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nama_grup:
+ *                 type: string
+ *               group_jid:
+ *                 type: string
+ *               kelas_id:
+ *                 type: integer
+ *                 nullable: true
+ *               status:
+ *                 type: string
+ *                 enum: [aktif, nonaktif]
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       400:
+ *         description: Validasi gagal
+ *       404:
+ *         description: Grup tidak ditemukan
+ *       409:
+ *         description: Duplikasi (JID atau kelas sudah digunakan)
+ *       500:
+ *         description: Server error
+ */
+router.put("/whatsapp-groups/:id", verifyToken, updateWhatsappGroup);
+
+/**
+ * @swagger
+ * /api/admin/whatsapp-groups/{id}:
+ *   patch:
+ *     summary: Hapus grup WhatsApp dari database
+ *     description: |
+ *       Hanya dapat dihapus jika tidak ada log pengiriman WA yang masih pending atau terkirim.
+ *       Jika grup sudah digunakan untuk pengumuman yang dikirim, penghapusan ditolak.
+ *     tags: [Admin - WhatsApp]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Grup berhasil dihapus
+ *       400:
+ *         description: ID tidak valid
+ *       404:
+ *         description: Grup tidak ditemukan
+ *       409:
+ *         description: Grup masih digunakan
+ *       500:
+ *         description: Server error
+ */
+router.patch("/whatsapp-groups/:id", verifyToken, disableWhatsappGroup);
 
 /**
  * @swagger
@@ -670,5 +764,196 @@ router.get("/pengumuman/draft", verifyToken, getDraftPengumuman);
  *         description: Server error
  */
 router.get("/pengumuman/:id", verifyToken, getPengumumanById);
+
+/**
+ * @swagger
+ * /api/admin/pengumuman/{id}:
+ *   put:
+ *     summary: Update pengumuman (hanya draft atau terjadwal)
+ *     description: |
+ *       - Tidak boleh mengupdate pengumuman yang sudah `terkirim`.
+ *       - Untuk mengubah status menjadi `terkirim`, gunakan endpoint `/kirim`.
+ *       - Jika status diubah menjadi `terjadwal`, wajib isi `scheduled_at`.
+ *     tags: [Admin - Pengumuman]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               judul:
+ *                 type: string
+ *               isi:
+ *                 type: string
+ *               target_type:
+ *                 type: string
+ *                 enum: [global, role, kelas, individu]
+ *               target_role:
+ *                 type: string
+ *                 enum: [semua, murid, pelatih]
+ *               kelas_id:
+ *                 type: integer
+ *               user_ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *               status:
+ *                 type: string
+ *                 enum: [draft, terjadwal]
+ *               scheduled_at:
+ *                 type: string
+ *                 format: date-time
+ *               kirim_whatsapp:
+ *                 type: boolean
+ *               whatsapp_scope:
+ *                 type: string
+ *                 enum: [grup_besar_saja, semua_grup]
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       403:
+ *         description: Tidak dapat mengedit karena status terkirim
+ *       404:
+ *         description: Pengumuman tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.put("/pengumuman/:id", verifyToken, updatePengumuman);
+
+/**
+ * @swagger
+ * /api/admin/pengumuman/{id}:
+ *   delete:
+ *     summary: Hapus pengumuman (hanya draft atau terjadwal)
+ *     description: Tidak boleh menghapus pengumuman yang sudah `terkirim`.
+ *     tags: [Admin - Pengumuman]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       403:
+ *         description: Tidak dapat menghapus karena status terkirim
+ *       404:
+ *         description: Pengumuman tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.delete("/pengumuman/:id", verifyToken, deletePengumuman);
+
+/**
+ * @swagger
+ * /api/admin/pengumuman/{id}/kirim:
+ *   post:
+ *     summary: Kirim draft pengumuman (langsung atau dijadwalkan)
+ *     description: |
+ *       Endpoint ini digunakan untuk mengubah status pengumuman dari `draft` menjadi:
+ *       - `terkirim` (langsung), dengan `action = 'sekarang'`
+ *       - `terjadwal` (dijadwalkan), dengan `action = 'terjadwal'` dan `scheduled_at`
+ *     tags: [Admin - Pengumuman]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID pengumuman
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - action
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [sekarang, terjadwal]
+ *               scheduled_at:
+ *                 type: string
+ *                 format: date-time
+ *                 description: Wajib jika action = terjadwal
+ *           examples:
+ *             kirimSekarang:
+ *               summary: Kirim sekarang
+ *               value:
+ *                 action: "sekarang"
+ *             jadwalkan:
+ *               summary: Jadwalkan pengiriman
+ *               value:
+ *                 action: "terjadwal"
+ *                 scheduled_at: "2026-06-20 08:00:00"
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     status:
+ *                       type: string
+ *                     scheduled_at:
+ *                       type: string
+ *                       format: date-time
+ *                       nullable: true
+ *       400:
+ *         description: Validasi gagal (action tidak valid, scheduled_at tidak valid, atau pengumuman bukan draft)
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       404:
+ *         description: Pengumuman tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.post("/pengumuman/:id/kirim", verifyToken, sendOrScheduleAnnouncement);
+
+/**
+ * @swagger
+ * /api/admin/pengumuman/{id}/retry-whatsapp:
+ *   post:
+ *     summary: Ulangi pengiriman WhatsApp untuk grup yang gagal
+ *     tags: [Admin - Pengumuman]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Proses retry selesai
+ *       404:
+ *         description: Tidak ada grup gagal atau pengumuman tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.post("/pengumuman/:id/retry-whatsapp", verifyToken, retryWhatsapp);
 
 module.exports = router;
