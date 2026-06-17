@@ -614,8 +614,7 @@ router.get("/get/user/pelatih/:id", getPelatihById);
  *               message: Gagal membuat user
  *               error: Internal server error
  */
-// router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
-router.post("/create/user", createUser);
+router.post("/create/user", verifyToken, authorizeRole("admin"), createUser);
 
 /**
  * @swagger

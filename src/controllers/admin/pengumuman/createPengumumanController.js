@@ -123,8 +123,8 @@ exports.createPengumuman = async (req, res) => {
     // Insert pengumuman
     const [result] = await conn.query(
       `INSERT INTO pengumuman 
-       (judul, isi, target_type, target_role, kelas_id, status, scheduled_at, kirim_whatsapp, dibuat_oleh)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+   (judul, isi, target_type, target_role, kelas_id, status, scheduled_at, kirim_whatsapp, whatsapp_scope, dibuat_oleh)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         judul.trim(),
         isi.trim(),
@@ -134,6 +134,7 @@ exports.createPengumuman = async (req, res) => {
         status,
         scheduled_at || null,
         kirim_whatsapp ? 1 : 0,
+        whatsapp_scope || null,
         req.user.id,
       ],
     );

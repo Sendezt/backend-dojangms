@@ -24,10 +24,13 @@ const {
 const {
   getDraftPengumuman,
 } = require("../../controllers/admin/pengumuman/getDraftPengumumanController");
+const {
+  getAllWhatsappGroups,
+} = require("../../controllers/admin/pengumuman/getAllWhatsappGroupsController");
 
 /**
  * @swagger
- * /api/whatsapp/groups:
+ * /api/admin/whatsapp/groups:
  *   get:
  *     tags: [Admin - Pengumuman]
  *     summary: Mendapatkan daftar grup WhatsApp
@@ -108,6 +111,89 @@ router.get("/whatsapp/groups", getGroups);
  *         description: Server error
  */
 router.post("/whatsapp/groups/bulk", verifyToken, addBulkWhatsappGroup);
+
+/**
+ * @swagger
+ * /api/admin/whatsapp-groups/terdaftar:
+ *   get:
+ *     summary: Daftar grup WhatsApp yang terdaftar (dengan pagination, search, filter status)
+ *     tags: [Admin - Pengumuman]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, enum: [10,25,50,75,100,200], default: 10 }
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *         description: Cari berdasarkan nama grup atau group_jid
+ *       - in: query
+ *         name: status
+ *         schema: { type: string, enum: [aktif, nonaktif] }
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       nama_grup:
+ *                         type: string
+ *                       group_jid:
+ *                         type: string
+ *                       kelas_id:
+ *                         type: integer
+ *                         nullable: true
+ *                       kelas_nama:
+ *                         type: string
+ *                         nullable: true
+ *                       status:
+ *                         type: string
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                 meta:
+ *                   type: object
+ *                   properties:
+ *                     pagination:
+ *                       type: object
+ *                       properties:
+ *                         current_page:
+ *                           type: integer
+ *                         per_page:
+ *                           type: integer
+ *                         total_page:
+ *                           type: integer
+ *                         total_data:
+ *                           type: integer
+ *                         has_next:
+ *                           type: boolean
+ *                         has_prev:
+ *                           type: boolean
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get("/whatsapp-groups/terdaftar", verifyToken, getAllWhatsappGroups);
 
 /**
  * @swagger

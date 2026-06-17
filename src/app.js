@@ -3,7 +3,9 @@ const cors = require("cors");
 const path = require("path");
 require("dotenv").config();
 const app = express();
+process.env.TZ = "Asia/Jakarta";
 
+const cronjobRouter = require("./routes/internalRoutes");
 const kelolaPengumuman = require("./routes/admin/pengumumanRoutes");
 const kelolaUjianSabuk = require("./routes/admin/ujianSabukRoutes");
 const kelolaKejuaraan = require("./routes/admin/kejuaraanRoutes");
@@ -46,5 +48,6 @@ app.use("/api/admin", kelolaUjianSabuk);
 app.use("/api/admin", kelolaPengumuman);
 app.use("/api/auth", authRouter);
 app.use("/api/public", publicRouter);
+app.use("/api/internal", cronjobRouter);
 
 module.exports = app;

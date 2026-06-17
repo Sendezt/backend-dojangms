@@ -1,6 +1,6 @@
 // src/helpers/announcementHelper.js
 const db = require("../config/database");
-const { client } = require("../services/whatsapp.service");
+const { sendMessage, isClientReady } = require("../services/whatsapp.service");
 
 async function sendAnnouncement(conn, announcement) {
   const {
@@ -13,6 +13,10 @@ async function sendAnnouncement(conn, announcement) {
     kirim_whatsapp,
     whatsapp_scope,
   } = announcement;
+
+  const scope = announcement.whatsapp_scope || null;
+
+  console.log(`[Helper] Sending announcement ID ${id} to ${target_type}`);
 
   // 1. Tentukan target user
   let targetUserIds = [];
@@ -46,17 +50,13 @@ async function sendAnnouncement(conn, announcement) {
     targetUserIds = users.map((u) => u.user_id);
   }
 
-  // 2. Kirim notifikasi in-app (bulk insert)
+  console.log(`[Helper] Target users count: ${targetUserIds.length}`);
+
+  // 2. Kirim notifikasi in-app
   if (targetUserIds.length > 0) {
-    // Buat values string: (user_id, ?, ?, 'pengumuman', ?, NOW())
-    // Karena judul, isi, id sama untuk semua, kita gunakan parameter binding
-    // Namun kita perlu menulis query dengan banyak placeholder.
-    // Lebih mudah: gunakan satu query dengan banyak baris VALUES.
     const rows = targetUserIds
       .map(() => "(?, ?, ?, 'pengumuman', ?, NOW())")
       .join(",");
-    // Parameternya: untuk setiap baris butuh 4 parameter (user_id, judul, isi, referensi_id)
-    // Kita buat array parameter: [user_id1, judul, isi, id, user_id2, judul, isi, id, ...]
     const params = [];
     for (const uid of targetUserIds) {
       params.push(uid, judul, isi, id);
@@ -66,15 +66,63 @@ async function sendAnnouncement(conn, announcement) {
        VALUES ${rows}`,
       params,
     );
+    console.log(
+      `[Helper] In-app notifications sent to ${targetUserIds.length} users`,
+    );
   }
 
-  // 3. Kirim WhatsApp (hanya jika target_type = global dan kirim_whatsapp = true)
-  // Di bagian WhatsApp
+  // 3. Kirim WhatsApp (hanya global)
   if (kirim_whatsapp && target_type === "global") {
-    let groups = [];
+    // Cek status client WhatsApp
+    if (!isClientReady()) {
+      console.warn(
+        `[Helper] WhatsApp client belum siap, lewati pengiriman WA untuk pengumuman ${id}`,
+      );
+      // Catat di log sebagai pending agar bisa di-retry nanti
+      // Kita tetap akan insert log untuk setiap grup dengan status 'pending'
+      let groups = [];
+      if (announcement.whatsapp_group_id) {
+        const [rows] = await conn.query(
+          "SELECT id, group_jid FROM whatsapp_group WHERE id = ? AND status = 'aktif'",
+          [announcement.whatsapp_group_id],
+        );
+        groups = rows;
+      } else if (whatsapp_scope === "grup_besar_saja") {
+        const [rows] = await conn.query(
+          "SELECT id, group_jid FROM whatsapp_group WHERE status = 'aktif' AND kelas_id IS NULL",
+        );
+        groups = rows;
+      } else if (whatsapp_scope === "semua_grup") {
+        const [rows] = await conn.query(
+          "SELECT id, group_jid FROM whatsapp_group WHERE status = 'aktif'",
+        );
+        groups = rows;
+      }
+      // Insert log pending
+      for (const group of groups) {
+        await conn.query(
+          `INSERT INTO pengumuman_whatsapp_log (pengumuman_id, whatsapp_group_id, status, error_message)
+           VALUES (?, ?, 'pending', 'Client tidak siap')`,
+          [id, group.id],
+        );
+      }
+      console.log(
+        `[Helper] ${groups.length} WA log entries created as pending`,
+      );
+      // Selesai, tidak perlu kirim
+      // Update tanggal_publish tetap dilakukan
+      await conn.query(
+        `UPDATE pengumuman SET tanggal_publish = NOW() WHERE id = ?`,
+        [id],
+      );
+      console.log(`[Helper] Announcement ID ${id} publish date updated.`);
+      return; // keluar dari helper
+    }
 
+    // Client siap, lanjutkan kirim
+    console.log("[Helper] Sending WhatsApp...");
+    let groups = [];
     if (announcement.whatsapp_group_id) {
-      // Kirim ke satu grup tertentu
       const [rows] = await conn.query(
         "SELECT id, group_jid FROM whatsapp_group WHERE id = ? AND status = 'aktif'",
         [announcement.whatsapp_group_id],
@@ -90,38 +138,39 @@ async function sendAnnouncement(conn, announcement) {
         "SELECT id, group_jid FROM whatsapp_group WHERE status = 'aktif'",
       );
       groups = rows;
+    } else {
+      console.log(`[Helper] Unknown whatsapp_scope: ${whatsapp_scope}`);
     }
 
+    console.log(`[Helper] Found ${groups.length} WhatsApp groups`);
     const waMessage = `📢 *${judul}*\n\n${isi}`;
 
     for (const group of groups) {
-      try {
-        // Simpan log pending
-        await conn.query(
-          `INSERT INTO pengumuman_whatsapp_log (pengumuman_id, whatsapp_group_id, status)
-           VALUES (?, ?, 'pending')`,
-          [id, group.id],
-        );
+      // Insert log pending
+      await conn.query(
+        `INSERT INTO pengumuman_whatsapp_log (pengumuman_id, whatsapp_group_id, status)
+         VALUES (?, ?, 'pending')`,
+        [id, group.id],
+      );
 
-        // Kirim pesan
-        await client.sendMessage(group.group_jid, waMessage);
-
-        // Update log sukses
+      // Kirim menggunakan sendMessage dari service
+      const result = await sendMessage(group.group_jid, waMessage);
+      if (result.success) {
         await conn.query(
           `UPDATE pengumuman_whatsapp_log SET status = 'terkirim', sent_at = NOW()
            WHERE pengumuman_id = ? AND whatsapp_group_id = ?`,
           [id, group.id],
         );
-      } catch (error) {
-        // Update log gagal
+        console.log(`[Helper] WA sent to group ${group.group_jid}`);
+      } else {
         await conn.query(
           `UPDATE pengumuman_whatsapp_log SET status = 'gagal', error_message = ?
            WHERE pengumuman_id = ? AND whatsapp_group_id = ?`,
-          [error.message, id, group.id],
+          [result.error, id, group.id],
         );
         console.error(
-          `Gagal kirim WhatsApp ke grup ${group.group_jid}:`,
-          error.message,
+          `[Helper] WA failed for ${group.group_jid}:`,
+          result.error,
         );
       }
     }
@@ -132,6 +181,7 @@ async function sendAnnouncement(conn, announcement) {
     `UPDATE pengumuman SET tanggal_publish = NOW() WHERE id = ?`,
     [id],
   );
+  console.log(`[Helper] Announcement ID ${id} publish date updated.`);
 }
 
 module.exports = { sendAnnouncement };
