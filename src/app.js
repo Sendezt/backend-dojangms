@@ -5,6 +5,7 @@ require("dotenv").config();
 const app = express();
 process.env.TZ = "Asia/Jakarta";
 
+const kelolaKelasbyPelatih = require("./routes/pelatih/kelasRoutes");
 const cronjobRouter = require("./routes/internalRoutes");
 const kelolaPengumuman = require("./routes/admin/pengumumanRoutes");
 const kelolaUjianSabuk = require("./routes/admin/ujianSabukRoutes");
@@ -46,6 +47,7 @@ app.use("/api/admin", kelolaAbsensiRouter);
 app.use("/api/admin", kelolaKejuaraan);
 app.use("/api/admin", kelolaUjianSabuk);
 app.use("/api/admin", kelolaPengumuman);
+app.use("/api/pelatih", kelolaKelasbyPelatih);
 app.use("/api/auth", authRouter);
 app.use("/api/public", publicRouter);
 app.use("/api/internal", cronjobRouter);
