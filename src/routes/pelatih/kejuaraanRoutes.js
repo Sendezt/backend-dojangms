@@ -12,6 +12,12 @@ const {
 const {
   getPesertaByKejuaraan,
 } = require("../../controllers/pelatih/kejuaraan/getPesertaByKejuaraanController");
+const {
+  editHasilPeserta,
+} = require("../../controllers/pelatih/kejuaraan/editHasilPesertaController");
+const {
+  getKejuaraanEditable,
+} = require("../../controllers/pelatih/kejuaraan/getKejuaraanEditableController");
 
 /**
  * @swagger
@@ -61,6 +67,54 @@ const {
  *         description: Server error
  */
 router.get("/kejuaraan/inputable", verifyToken, getInputableKejuaraan);
+
+/**
+ * @swagger
+ * /api/pelatih/kejuaraan/editable:
+ *   get:
+ *     summary: Daftar kejuaraan yang sudah melewati H+1 dan memiliki peserta yang belum diedit
+ *     tags: [Pelatih - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *                       level:
+ *                         type: string
+ *                       location:
+ *                         type: string
+ *                       year:
+ *                         type: integer
+ *                       start_date:
+ *                         type: string
+ *                         format: date
+ *                       end_date:
+ *                         type: string
+ *                         format: date
+ *                       total_peserta:
+ *                         type: integer
+ *                       peserta_belum_diedit:
+ *                         type: integer
+ *       500:
+ *         description: Server error
+ */
+router.get("/kejuaraan/editable", verifyToken, getKejuaraanEditable);
 
 /**
  * @swagger
@@ -209,6 +263,74 @@ router.put(
   "/kejuaraan/:kejuaraanId/peserta/:pesertaId",
   verifyToken,
   updateHasilPeserta,
+);
+
+/**
+ * @swagger
+ * /api/pelatih/kejuaraan/{kejuaraanId}/peserta/{pesertaId}/edit:
+ *   put:
+ *     summary: Edit hasil peserta kejuaraan (hanya satu kali, setelah H+1)
+ *     description: |
+ *       Endpoint ini untuk mengedit hasil kejuaraan setelah periode input hasil berakhir.
+ *
+ *       **Batasan:**
+ *       - Hanya dapat diakses setelah H+1 (end_date + 1 hari) dari kejuaraan.
+ *       - Setiap peserta hanya bisa diedit SATU KALI saja.
+ *       - Setelah diedit, `is_edited` berubah menjadi `1` dan tidak bisa diedit lagi.
+ *
+ *       **Catatan:**
+ *       - Untuk input hasil selama kejuaraan berlangsung, gunakan endpoint `/kejuaraan/{kejuaraanId}/peserta/{pesertaId}` (PUT).
+ *     tags: [Pelatih - Kejuaraan]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kejuaraanId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kejuaraan
+ *       - in: path
+ *         name: pesertaId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID peserta_kejuaraan
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - hasil
+ *             properties:
+ *               hasil:
+ *                 type: string
+ *                 enum: [juara1, juara2, juara3, harapan1, harapan2, peserta]
+ *                 example: "juara1"
+ *               catatan:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "Revisi hasil final"
+ *     responses:
+ *       200:
+ *         description: Hasil peserta berhasil diedit
+ *       400:
+ *         description: Validasi gagal
+ *       403:
+ *         description: Diluar batas waktu edit (belum H+1)
+ *       404:
+ *         description: Kejuaraan atau peserta tidak ditemukan
+ *       409:
+ *         description: Hasil peserta sudah pernah diedit sebelumnya
+ *       500:
+ *         description: Server error
+ */
+router.put(
+  "/kejuaraan/:kejuaraanId/peserta/:pesertaId/edit",
+  verifyToken,
+  editHasilPeserta,
 );
 
 module.exports = router;
