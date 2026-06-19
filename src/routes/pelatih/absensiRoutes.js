@@ -13,6 +13,12 @@ const {
 const {
   updateAbsensi,
 } = require("../../controllers/pelatih/absensi/updateAbsensiController");
+const {
+  getRekapAbsensiKelas,
+} = require("../../controllers/pelatih/absensi/getRekapKelasController");
+const {
+  getRiwayatAbsensiMurid,
+} = require("../../controllers/pelatih/absensi/getRiwayatMuridController");
 
 /**
  * @swagger
@@ -386,5 +392,102 @@ router.put("/absensi/:jadwalId/:tanggal", verifyToken, updateAbsensi);
  *         description: Server error
  */
 router.get("/absensi/history/:jadwalId", verifyToken, getAbsensiHistory);
+
+/**
+ * @swagger
+ * /api/pelatih/riwayat-absensi/kelas/{kelasId}:
+ *   get:
+ *     summary: Rekap absensi semua murid dalam satu kelas
+ *     tags: [Pelatih - Absensi]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: kelasId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID kelas
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter tanggal awal (opsional)
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter tanggal akhir (opsional)
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       403:
+ *         description: Akses ditolak
+ *       400:
+ *         description: Parameter tidak valid
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  "/riwayat-absensi/kelas/:kelasId",
+  verifyToken,
+  getRekapAbsensiKelas,
+);
+
+/**
+ * @swagger
+ * /api/pelatih/riwayat-absensi/murid/{userId}:
+ *   get:
+ *     summary: Riwayat absensi murid tertentu pada kelas yang diampu pelatih
+ *     tags: [Pelatih - Absensi]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID murid
+ *       - in: query
+ *         name: jadwalId
+ *         schema:
+ *           type: integer
+ *         description: Filter berdasarkan ID jadwal (opsional)
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter tanggal awal (opsional)
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter tanggal akhir (opsional)
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 20
+ *         description: Jumlah data yang diambil
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       403:
+ *         description: Akses ditolak
+ *       400:
+ *         description: Parameter tidak valid
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  "/riwayat-absensi/murid/:userId",
+  verifyToken,
+  getRiwayatAbsensiMurid,
+);
 
 module.exports = router;
