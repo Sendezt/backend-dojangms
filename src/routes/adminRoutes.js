@@ -915,84 +915,6 @@ router.get("/get/championship/3months", getUpcomingKejuaraan3Months);
 
 /**
  * @swagger
- * /api/admin/get/championship/{id}:
- *   get:
- *     summary: Get championship by ID
- *     tags: [Admin]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Success
- */
-router.get("/get/championship/:id", getChampionshipById);
-
-/**
- * @swagger
- * /api/admin/create/championship:
- *   post:
- *     summary: Create championship
- *     tags: [Admin]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *     responses:
- *       201:
- *         description: Created
- */
-router.post("/create/championship", createChampionship);
-
-/**
- * @swagger
- * /api/admin/update/championship/{id}:
- *   patch:
- *     summary: Update championship
- *     tags: [Admin]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *     responses:
- *       200:
- *         description: Success
- */
-router.patch("/update/championship/:id", updateChampionship);
-
-/**
- * @swagger
- * /api/admin/delete/championship/{id}:
- *   delete:
- *     summary: Delete championship
- *     tags: [Admin]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Success
- */
-router.delete("/delete/championship/:id", deleteChampionship);
-
-/**
- * @swagger
  * /api/admin/get/roles:
  *   get:
  *     summary: Get all roles
@@ -1156,33 +1078,5 @@ router.patch("/update/belts/:id", updateBelt);
  *         description: Success
  */
 router.delete("/delete/belts/:id", deleteBelt);
-
-/**
- * @swagger
- * /api/admin/create/championship/participant/{championship_id}:
- *   post:
- *     summary: Add participant to championship
- *     tags: [Admin]
- *     parameters:
- *       - in: path
- *         name: championship_id
- *         required: true
- *         schema:
- *           type: string
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *     responses:
- *       201:
- *         description: Created
- */
-// championship participant route
-router.post(
-  "/create/championship/participant/:championship_id",
-  addParticipant,
-);
 
 module.exports = router;
