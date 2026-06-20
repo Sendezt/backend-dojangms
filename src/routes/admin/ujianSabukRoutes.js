@@ -45,6 +45,12 @@ const {
 const {
   updateStatusUjianOtomatis,
 } = require("../../controllers/admin/ujian/updateStatusUjianOtomatisController.js");
+const {
+  getAllUjian,
+} = require("../../controllers/admin/ujian/getAllUjianController.js");
+const {
+  getHasilPesertaByUjianId,
+} = require("../../controllers/admin/ujian/getHasilPesertaByUjianIdController.js");
 
 /**
  * @swagger
@@ -372,7 +378,6 @@ router.get("/ujian-kenaikan-sabuk/terjadwal", verifyToken, getUjianTerjadwal);
  *       500:
  *         description: Kesalahan server
  */
-
 router.get("/ujian-kenaikan-sabuk/deleted", verifyToken, getDeletedUjianSabuk);
 
 /**
@@ -956,6 +961,261 @@ router.delete(
   "/ujian-kenaikan-sabuk/:ujianId/peserta/bulk",
   verifyToken,
   bulkHardDeletePesertaUjian,
+);
+
+/**
+ * @swagger
+ * /api/admin/ujian-rekap:
+ *   get:
+ *     summary: Daftar semua ujian sabuk (dengan filter status, tanggal, dan rekap peserta)
+ *     tags: [Admin - Rekap Ujian Sabuk]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10, 25, 50, 75, 100, 200]
+ *           default: 10
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [terjadwal, selesai, dibatalkan]
+ *         description: Filter status ujian
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Cari berdasarkan lokasi atau keterangan
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter tanggal mulai >=
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Filter tanggal selesai <=
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       level_ujian:
+ *                         type: string
+ *                       lokasi:
+ *                         type: string
+ *                       keterangan:
+ *                         type: string
+ *                       status:
+ *                         type: string
+ *                       tanggal_mulai:
+ *                         type: string
+ *                         format: date
+ *                       tanggal_selesai:
+ *                         type: string
+ *                         format: date
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       rekap:
+ *                         type: object
+ *                         properties:
+ *                           total_peserta:
+ *                             type: integer
+ *                           terdaftar:
+ *                             type: integer
+ *                           lulus:
+ *                             type: integer
+ *                           tidak_lulus:
+ *                             type: integer
+ *                           sudah_diedit:
+ *                             type: integer
+ *                           persentase_lulus:
+ *                             type: number
+ *                             example: 75.50
+ *       400:
+ *         description: Parameter tidak valid
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden
+ *       500:
+ *         description: Server error
+ */
+router.get("/ujian-rekap", verifyToken, getAllUjian);
+
+/**
+ * @swagger
+ * /api/admin/ujian/{ujianId}/hasil-peserta:
+ *   get:
+ *     summary: Dapatkan daftar peserta beserta hasil ujian (rekap hasil)
+ *     tags: [Admin - Rekap Ujian Sabuk]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ujianId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID ujian
+ *         example: 6
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Halaman
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10, 25, 50, 75, 100, 200]
+ *           default: 10
+ *         description: Jumlah data per halaman
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Cari berdasarkan nama, email, atau telepon
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [terdaftar, lulus, tidak_lulus]
+ *         description: Filter berdasarkan status
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     ujian:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         level_ujian:
+ *                           type: string
+ *                         lokasi:
+ *                           type: string
+ *                         keterangan:
+ *                           type: string
+ *                         status:
+ *                           type: string
+ *                         tanggal_mulai:
+ *                           type: string
+ *                           format: date
+ *                         tanggal_selesai:
+ *                           type: string
+ *                           format: date
+ *                     summary:
+ *                       type: object
+ *                       properties:
+ *                         total_peserta:
+ *                           type: integer
+ *                         terdaftar:
+ *                           type: integer
+ *                         lulus:
+ *                           type: integer
+ *                         tidak_lulus:
+ *                           type: integer
+ *                         sudah_diedit:
+ *                           type: integer
+ *                         persentase_lulus:
+ *                           type: number
+ *                         persentase_tidak_lulus:
+ *                           type: number
+ *                     peserta:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           peserta_id:
+ *                             type: integer
+ *                           user:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: integer
+ *                               name:
+ *                                 type: string
+ *                               email:
+ *                                 type: string
+ *                               phone:
+ *                                 type: string
+ *                               tanggal_lahir:
+ *                                 type: string
+ *                                 format: date
+ *                           belt_asal:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: integer
+ *                               name:
+ *                                 type: string
+ *                           belt_tujuan:
+ *                             type: object
+ *                             properties:
+ *                               id:
+ *                                 type: integer
+ *                               name:
+ *                                 type: string
+ *                           status:
+ *                             type: string
+ *                           tanggal_lulus:
+ *                             type: string
+ *                             format: date-time
+ *                             nullable: true
+ *                           tanggal_edit:
+ *                             type: string
+ *                             format: date-time
+ *                             nullable: true
+ *       400:
+ *         description: ID ujian tidak valid atau filter status salah
+ *       404:
+ *         description: Ujian tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.get(
+  "/ujian/:ujianId/hasil-peserta",
+  verifyToken,
+  getHasilPesertaByUjianId,
 );
 
 module.exports = router;

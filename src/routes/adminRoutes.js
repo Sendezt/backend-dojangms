@@ -88,6 +88,10 @@ const {
   addParticipant,
 } = require("../controllers/admin/AddParticipantChampionshipController");
 
+const {
+  triggerUpdateStatus,
+} = require("../controllers/admin/ujian/triggerUpdateStatusController");
+
 /**
  * @swagger
  * tags:
@@ -1078,5 +1082,32 @@ router.patch("/update/belts/:id", updateBelt);
  *         description: Success
  */
 router.delete("/delete/belts/:id", deleteBelt);
+
+/**
+ * @swagger
+ * /api/admin/ujian/update-status:
+ *   post:
+ *     summary: Update status ujian dari 'terjadwal' menjadi 'selesai' jika tanggal_selesai sudah lewat
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 affected:
+ *                   type: integer
+ *       500:
+ *         description: Server error
+ */
+router.post("/ujian/update-status", verifyToken, triggerUpdateStatus);
 
 module.exports = router;
