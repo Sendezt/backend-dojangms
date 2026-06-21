@@ -90,6 +90,9 @@ const {
  *               kelas_id:
  *                 type: integer
  *                 description: Wajib jika tipe = kelas
+ *               kejuaraan_id:
+ *                 type: integer
+ *                 description: Opsional, hanya untuk tipe training_camp (relasi ke kejuaraan)
  *               hari:
  *                 type: string
  *                 enum: [senin, selasa, rabu, kamis, jumat, sabtu, minggu]
@@ -161,6 +164,7 @@ const {
  *               value:
  *                 tipe: "training_camp"
  *                 nama: "Training Camp Nasional"
+ *                 kejuaraan_id: 1
  *                 tanggal_mulai: "2026-07-10"
  *                 tanggal_selesai: "2026-07-12"
  *                 jam_mulai: "08:00"
@@ -176,7 +180,7 @@ const {
  *       403:
  *         description: Forbidden
  *       404:
- *         description: Kelas tidak ditemukan (jika tipe kelas)
+ *         description: Kelas tidak ditemukan (jika tipe kelas) atau kejuaraan tidak ditemukan
  *       409:
  *         description: Jadwal bentrok dengan jadwal lain di lokasi yang sama
  *       500:

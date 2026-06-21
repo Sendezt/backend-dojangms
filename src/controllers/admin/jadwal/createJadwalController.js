@@ -1,4 +1,3 @@
-// src/controllers/admin/jadwal/createJadwalController.js
 const db = require("../../../config/database");
 
 // Helper: cek bentrok jadwal recurring (latihan_wajib atau kelas recurring)
@@ -120,19 +119,20 @@ exports.createJadwal = async (req, res) => {
       tipe,
       nama,
       kelas_id,
+      kejuaraan_id,
       hari,
       effective_from,
       effective_until,
       tanggal_mulai,
       tanggal_selesai,
-      tanggal, // PERUBAHAN: tambahan untuk one-time kelas
+      tanggal,
       jam_mulai,
       jam_selesai,
       lokasi,
       keterangan,
     } = req.body;
 
-    // Validasi dasar (sama seperti kode asli)
+    // Validasi dasar
     if (!tipe || !["latihan_wajib", "training_camp", "kelas"].includes(tipe)) {
       return res.status(400).json({ message: "Tipe jadwal tidak valid" });
     }
@@ -172,7 +172,6 @@ exports.createJadwal = async (req, res) => {
 
     // Validasi spesifik tipe
     if (tipe === "latihan_wajib") {
-      // ... (kode asli tidak berubah)
       if (
         !hari ||
         ![
@@ -209,7 +208,7 @@ exports.createJadwal = async (req, res) => {
       }
     } else if (tipe === "kelas") {
       if (hari) {
-        // Recurring (kode asli)
+        // Recurring
         if (
           ![
             "senin",
@@ -224,9 +223,11 @@ exports.createJadwal = async (req, res) => {
           return res.status(400).json({ message: "Hari tidak valid" });
         }
         if (!effective_from || isNaN(Date.parse(effective_from))) {
-          return res.status(400).json({
-            message: "effective_from wajib untuk jadwal kelas recurring",
-          });
+          return res
+            .status(400)
+            .json({
+              message: "effective_from wajib untuk jadwal kelas recurring",
+            });
         }
         if (effective_until && isNaN(Date.parse(effective_until))) {
           return res
@@ -242,17 +243,17 @@ exports.createJadwal = async (req, res) => {
             .json({ message: "effective_until harus setelah effective_from" });
         }
       } else {
-        // PERUBAHAN: One-time (kelas pengganti) - cukup input tanggal
+        // One-time kelas pengganti
         if (!tanggal || isNaN(Date.parse(tanggal))) {
-          return res.status(400).json({
-            message:
-              "Untuk jadwal kelas one-time, wajib mengisi tanggal (format YYYY-MM-DD)",
-          });
+          return res
+            .status(400)
+            .json({
+              message:
+                "Untuk jadwal kelas one-time, wajib mengisi tanggal (format YYYY-MM-DD)",
+            });
         }
-        // Set tanggal_mulai dan tanggal_selesai sama
         tanggal_mulai = tanggal;
         tanggal_selesai = tanggal;
-        // Opsional: cek tanggal tidak boleh kurang dari hari ini
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         if (new Date(tanggal) < today) {
@@ -262,12 +263,14 @@ exports.createJadwal = async (req, res) => {
         }
       }
     } else if (tipe === "training_camp") {
-      // ... (kode asli)
+      // Validasi tanggal
       if (!tanggal_mulai || !tanggal_selesai) {
-        return res.status(400).json({
-          message:
-            "tanggal_mulai dan tanggal_selesai wajib untuk training_camp",
-        });
+        return res
+          .status(400)
+          .json({
+            message:
+              "tanggal_mulai dan tanggal_selesai wajib untuk training_camp",
+          });
       }
       if (
         isNaN(Date.parse(tanggal_mulai)) ||
@@ -276,14 +279,65 @@ exports.createJadwal = async (req, res) => {
         return res.status(400).json({ message: "Format tanggal tidak valid" });
       }
       if (new Date(tanggal_mulai) > new Date(tanggal_selesai)) {
-        return res.status(400).json({
-          message:
-            "tanggal_selesai harus setelah atau sama dengan tanggal_mulai",
-        });
+        return res
+          .status(400)
+          .json({
+            message:
+              "tanggal_selesai harus setelah atau sama dengan tanggal_mulai",
+          });
       }
+
+      // ===== VALIDASI KEJUARAAN =====
+      let finalKejuaraanId = null;
+      if (
+        kejuaraan_id !== undefined &&
+        kejuaraan_id !== null &&
+        kejuaraan_id !== ""
+      ) {
+        const parsedKejuaraanId = parseInt(kejuaraan_id);
+        if (isNaN(parsedKejuaraanId) || parsedKejuaraanId < 1) {
+          return res.status(400).json({ message: "kejuaraan_id tidak valid" });
+        }
+        const [kejuaraan] = await conn.query(
+          "SELECT id, start_date, end_date FROM kejuaraan WHERE id = ?",
+          [parsedKejuaraanId],
+        );
+        if (kejuaraan.length === 0) {
+          return res.status(404).json({ message: "Kejuaraan tidak ditemukan" });
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const startKejuaraan = new Date(kejuaraan[0].start_date);
+
+        // 1. Kejuaraan harus akan datang (belum dimulai)
+        if (startKejuaraan < today) {
+          return res
+            .status(400)
+            .json({
+              message:
+                "Kejuaraan yang dipilih harus akan datang (belum dimulai)",
+            });
+        }
+
+        // 2. Training camp harus selesai sebelum kejuaraan dimulai
+        const endTraining = new Date(tanggal_selesai);
+        if (endTraining > startKejuaraan) {
+          return res
+            .status(400)
+            .json({
+              message:
+                "Training camp harus selesai sebelum kejuaraan dimulai (tanggal_selesai <= start_date kejuaraan)",
+            });
+        }
+
+        finalKejuaraanId = parsedKejuaraanId;
+      }
+      // Simpan untuk insert
+      req.body.finalKejuaraanId = finalKejuaraanId;
     }
 
-    // Cek bentrok (sama seperti kode asli, tidak berubah)
+    // Cek bentrok jadwal
     let isConflict = false;
     if (tipe === "latihan_wajib" || (tipe === "kelas" && hari)) {
       isConflict = await checkConflictRecurring(
@@ -310,9 +364,11 @@ exports.createJadwal = async (req, res) => {
       );
     }
     if (isConflict) {
-      return res.status(409).json({
-        message: "Jadwal bentrok dengan jadwal lain di lokasi yang sama",
-      });
+      return res
+        .status(409)
+        .json({
+          message: "Jadwal bentrok dengan jadwal lain di lokasi yang sama",
+        });
     }
 
     // Siapkan data insert
@@ -320,6 +376,7 @@ exports.createJadwal = async (req, res) => {
       tipe,
       nama: nama.trim(),
       kelas_id: finalKelasId,
+      kejuaraan_id: tipe === "training_camp" ? req.body.finalKejuaraanId : null,
       jam_mulai,
       jam_selesai,
       lokasi: lokasi.trim(),
@@ -338,7 +395,6 @@ exports.createJadwal = async (req, res) => {
         insertData.effective_from = effective_from;
         insertData.effective_until = effective_until || null;
       } else {
-        // PERUBAHAN: one-time kelas, simpan tanggal_mulai & tanggal_selesai
         insertData.hari = null;
         insertData.effective_from = null;
         insertData.effective_until = null;
