@@ -1,5 +1,11 @@
 const db = require("../../config/database");
 
+const getJakartaNow = () => {
+  return new Date(
+    new Date().toLocaleDateString("en-US", { timeZone: "Asia/Jakarta" }),
+  );
+};
+
 exports.getChampionshipById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -10,19 +16,26 @@ exports.getChampionshipById = async (req, res) => {
       });
     }
 
+    const today = getJakartaNow();
+
     const [rows] = await db.execute(
       `
-      SELECT 
-        id,
-        name,
-        level,
-        location,
-        start_date,
-        end_date
-      FROM kejuaraan
-      WHERE id = ?
-    `,
-      [id],
+  SELECT 
+    id,
+    name,
+    level,
+    location,
+    DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date,
+    DATE_FORMAT(end_date, '%Y-%m-%d') AS end_date,
+    CASE
+      WHEN start_date > ? THEN 'akan datang'
+      WHEN start_date <= ? AND end_date >= ? THEN 'berlangsung'
+      ELSE 'selesai'
+    END AS status
+  FROM kejuaraan
+  WHERE id = ?
+`,
+      [today, today, today, id],
     );
 
     if (rows.length === 0) {
