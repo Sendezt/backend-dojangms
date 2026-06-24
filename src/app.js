@@ -5,6 +5,7 @@ require("dotenv").config();
 const app = express();
 process.env.TZ = "Asia/Jakarta";
 
+const historyMuridRouter = require("./routes/murid/historyRoutes");
 const JadwalMuridRouter = require("./routes/murid/jadwalRoutes");
 const KelasMurid = require("./routes/murid/kelasRoutes");
 const UjianPelatihRouter = require("./routes/pelatih/ujianKenaikanSabukRoutes");
@@ -58,6 +59,7 @@ app.use("/api/pelatih", kejuaraanPelatihRouter);
 app.use("/api/pelatih", UjianPelatihRouter);
 app.use("/api/murid", KelasMurid);
 app.use("/api/murid", JadwalMuridRouter);
+app.use("/api/murid", historyMuridRouter);
 app.use("/api/auth", authRouter);
 app.use("/api/public", publicRouter);
 app.use("/api/internal", cronjobRouter);
