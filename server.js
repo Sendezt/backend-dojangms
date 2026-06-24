@@ -1,4 +1,4 @@
-require("./src/services/whatsapp.service");
+// require("./src/services/whatsapp.service");
 
 const app = require("./src/app");
 
