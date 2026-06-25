@@ -16,6 +16,10 @@ const swaggerDefinition = {
       url: "http://localhost:3001",
       description: "Development server",
     },
+    {
+      url: "https://api.jokotingkir-tc.online",
+      description: "Production server",
+    },
   ],
 
   components: {
