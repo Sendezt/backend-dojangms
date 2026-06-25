@@ -1,31 +1,30 @@
-name: Deploy to VPS
+name: Deploy VPS
 
 on:
   push:
     branches:
       - main
-      - develop
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.10
+      - name: Deploy to VPS
+        uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+
           script: |
-            if [ "${{ github.ref_name }}" = "main" ]; then
-              cd /var/www/dojangms-prod
-              git pull origin main
-              npm install
-              pm2 restart dojangms-prod
-            else
-              cd /var/www/dojangms-staging
-              git pull origin develop
-              npm install
-              pm2 restart dojangms-staging
-            fi
+            cd ~/backend-dojangms
+
+            git pull origin main
+
+            npm install
+
+            pm2 restart backend-dojangms
+            pm2 restart backend-dojangms-cron
+
+            pm2 save

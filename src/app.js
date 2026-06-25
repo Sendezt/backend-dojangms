@@ -36,7 +36,7 @@ app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 app.get("/", (req, res) => {
   res.json({
     status: true,
-    message: "Server is running successfully, welcome to the API",
+    message: "Server is running successfully, welcome to the API Test Deploy",
     endpoint: ["/api/auth", "/api/admin", "/api/public"],
   });
 });
