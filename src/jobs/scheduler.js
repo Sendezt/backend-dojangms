@@ -17,15 +17,6 @@ cron.schedule("* * * * *", async () => {
         timeout: 30000,
       },
     );
-    // if (response.data.processed > 0) {
-    //   console.log(
-    //     `✅ [${new Date().toLocaleString("id-ID")}] ${response.data.processed} pengumuman diproses`,
-    //   );
-    // } else {
-    //   console.log(
-    //     `⏳ [${new Date().toLocaleString("id-ID")}] Tidak ada pengumuman terjadwal.`,
-    //   );
-    // }
   } catch (error) {
     console.error(
       `❌ [${new Date().toLocaleString("id-ID")}] Error:`,
