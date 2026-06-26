@@ -5,6 +5,7 @@ require("dotenv").config();
 const app = express();
 process.env.TZ = "Asia/Jakarta";
 
+const adminDashboardRouter = require("./routes/dashboardAdminRoutes");
 const historyMuridRouter = require("./routes/murid/historyRoutes");
 const JadwalMuridRouter = require("./routes/murid/jadwalRoutes");
 const KelasMurid = require("./routes/murid/kelasRoutes");
@@ -53,6 +54,7 @@ app.use("/api/admin", kelolaAbsensiRouter);
 app.use("/api/admin", kelolaKejuaraan);
 app.use("/api/admin", kelolaUjianSabuk);
 app.use("/api/admin", kelolaPengumuman);
+app.use("/api/admin", adminDashboardRouter);
 app.use("/api/pelatih", kelolaKelasbyPelatih);
 app.use("/api/pelatih", absensiPelatihRouter);
 app.use("/api/pelatih", kejuaraanPelatihRouter);
