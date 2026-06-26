@@ -3,35 +3,33 @@ const db = require("../../../config/database");
 /**
  * GET /api/admin/dashboard/user-growth
  * Data pertumbuhan user per bulan (murid, pelatih, admin)
- * - Jika `year` diberikan: tampilkan 12 bulan di tahun tersebut (Jan–Des).
- * - Jika `start_date` & `end_date` diberikan: tampilkan rentang tersebut.
- * - Jika tidak ada filter: tampilkan 12 bulan terakhir (termasuk bulan ini).
+ * - Jika year diberikan dan sama dengan tahun sekarang: tampilkan 12 bulan terakhir (termasuk bulan ini)
+ * - Jika year diberikan dan tidak sama dengan tahun sekarang: tampilkan 12 bulan penuh tahun tersebut
+ * - Jika tidak ada year: tampilkan 12 bulan terakhir
  */
 exports.getUserGrowth = async (req, res) => {
   try {
     const period = req.query.period || "monthly";
-    let startDate = req.query.start_date || null;
-    let endDate = req.query.end_date || null;
     const yearParam = req.query.year ? parseInt(req.query.year) : null;
 
     let start, end;
+    const today = new Date();
 
     if (yearParam && !isNaN(yearParam) && yearParam > 2000) {
-      // Seluruh tahun yang diminta (12 bulan)
-      start = new Date(yearParam, 0, 1);
-      end = new Date(yearParam, 11, 31);
-    } else if (startDate && endDate) {
-      start = new Date(startDate);
-      end = new Date(endDate);
-      if (end < start) {
-        return res.status(400).json({
-          success: false,
-          message: "end_date harus lebih besar dari start_date",
-        });
+      const currentYear = today.getFullYear();
+      if (yearParam === currentYear) {
+        // Tahun sekarang: 12 bulan terakhir (termasuk bulan ini)
+        end = new Date(today);
+        start = new Date(today);
+        start.setMonth(today.getMonth() - 11);
+        start.setDate(1);
+      } else {
+        // Tahun lain: 12 bulan penuh tahun tersebut
+        start = new Date(yearParam, 0, 1);
+        end = new Date(yearParam, 11, 31);
       }
     } else {
-      // Default: 12 bulan terakhir (termasuk bulan ini)
-      const today = new Date();
+      // Default: 12 bulan terakhir
       end = new Date(today);
       start = new Date(today);
       start.setMonth(today.getMonth() - 11);
