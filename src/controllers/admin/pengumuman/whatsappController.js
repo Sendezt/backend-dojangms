@@ -1,9 +1,19 @@
 // src\controllers\admin\pengumuman\whatsappController.js
-const { client } = require("../../../services/whatsapp.service");
+const {
+  getChats,
+  isClientReady,
+  getWhatsappStatus,
+} = require("../../../services/whatsapp.service");
 
 exports.getGroups = async (req, res) => {
   try {
-    const chats = await client.getChats();
+    if (!isClientReady()) {
+      return res.status(503).json({
+        message: "WhatsApp client belum siap",
+      });
+    }
+
+    const chats = await getChats();
 
     const groups = chats
       .filter((chat) => chat.isGroup)
@@ -13,9 +23,15 @@ exports.getGroups = async (req, res) => {
       }));
 
     res.json(groups);
-  } catch (error) {
+  } catch (err) {
+    console.error("[WA] getGroups:", err);
+
     res.status(500).json({
-      message: error.message,
+      message: err.message,
     });
   }
+};
+
+exports.getStatus = (req, res) => {
+  res.json(getWhatsappStatus());
 };
