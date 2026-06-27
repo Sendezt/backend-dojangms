@@ -5,6 +5,7 @@ const { authorizeRole } = require("../../middlewares/roleAdmin");
 
 const {
   getGroups,
+  getStatus,
 } = require("../../controllers/admin/pengumuman/whatsappController");
 const {
   sendTest,
@@ -48,6 +49,52 @@ const {
 const {
   getWhatsappGroupById,
 } = require("../../controllers/admin/pengumuman/getWhatsappGroupByIdController");
+
+/**
+ * @swagger
+ * /api/admin/whatsapp/status:
+ *   get:
+ *     summary: Mendapatkan status koneksi WhatsApp
+ *     description: >
+ *       Mengembalikan status koneksi WhatsApp Web beserta QR Code apabila
+ *       akun WhatsApp belum terhubung. Endpoint ini digunakan oleh dashboard
+ *       admin untuk memonitor status integrasi WhatsApp secara real-time.
+ *     tags:
+ *       - Admin - WhatsApp
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Status WhatsApp berhasil diperoleh.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 ready:
+ *                   type: boolean
+ *                   example: true
+ *                 status:
+ *                   type: string
+ *                   enum:
+ *                     - initializing
+ *                     - qr
+ *                     - authenticated
+ *                     - ready
+ *                     - disconnected
+ *                     - auth_failure
+ *                   example: ready
+ *                 qr:
+ *                   type: string
+ *                   nullable: true
+ *                   description: QR Code dalam format Base64 Data URL apabila status = qr.
+ *                   example: null
+ *       401:
+ *         description: Unauthorized.
+ *       500:
+ *         description: Terjadi kesalahan pada server.
+ */
+router.get("/whatsapp/status", verifyToken, getStatus);
 
 /**
  * @swagger
