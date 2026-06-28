@@ -9,7 +9,10 @@ const { Register } = require("../controllers/auth/RegisterController");
 const {
   resetPasswordLupa,
 } = require("../controllers/auth/resetPasswordController");
-const { getProfile } = require("../controllers/auth/profileController");
+const {
+  getProfile,
+  updateProfile,
+} = require("../controllers/auth/profileController");
 
 /**
  * @swagger
@@ -352,5 +355,125 @@ router.post("/reset-password", resetPasswordLupa);
  *         description: Server error
  */
 router.get("/profile", verifyToken, getProfile);
+
+/**
+ * @swagger
+ * /api/auth/profile:
+ *   put:
+ *     summary: Update profil user (tanpa password)
+ *     description: |
+ *       Update data profil user. Password tidak bisa diubah di sini – gunakan endpoint reset password.
+ *       Semua field opsional, minimal satu field harus dikirim.
+ *       Untuk upload foto, gunakan `multipart/form-data`.
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "John Doe"
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "john@example.com"
+ *               phone:
+ *                 type: string
+ *                 example: "081234567890"
+ *               alamat:
+ *                 type: string
+ *                 example: "Jl. Merdeka No. 10, Salatiga"
+ *               jenis_kelamin:
+ *                 type: string
+ *                 enum: [laki-laki, perempuan]
+ *                 example: "laki-laki"
+ *               nama_wali:
+ *                 type: string
+ *                 example: "Budi Santoso"
+ *               no_wali:
+ *                 type: string
+ *                 example: "082345678901"
+ *               foto:
+ *                 type: string
+ *                 format: binary
+ *                 description: File foto profil (opsional)
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               phone:
+ *                 type: string
+ *               alamat:
+ *                 type: string
+ *               jenis_kelamin:
+ *                 type: string
+ *                 enum: [laki-laki, perempuan]
+ *               nama_wali:
+ *                 type: string
+ *               no_wali:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Profil berhasil diperbarui
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     phone:
+ *                       type: string
+ *                     foto:
+ *                       type: string
+ *                     alamat:
+ *                       type: string
+ *                     jenis_kelamin:
+ *                       type: string
+ *                     nama_wali:
+ *                       type: string
+ *                     no_wali:
+ *                       type: string
+ *                     tanggal_lahir:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                     roles:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *       400:
+ *         description: Tidak ada data yang diupdate atau validasi gagal
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: User tidak ditemukan
+ *       409:
+ *         description: Email sudah digunakan
+ *       500:
+ *         description: Server error
+ */
+router.put("/profile", verifyToken, upload.single("foto"), updateProfile);
 
 module.exports = router;

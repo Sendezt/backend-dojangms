@@ -1,6 +1,6 @@
 // server.js
 // PORT=3001 di .env
-require("./src/services/whatsapp.service");
+// require("./src/services/whatsapp.service");
 
 const app = require("./src/app");
 

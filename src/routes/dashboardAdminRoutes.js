@@ -11,6 +11,12 @@ const {
 const {
   getUserGrowth,
 } = require("../controllers/admin/dashboard/getUserGrowthController");
+const {
+  getPelatihDashboard,
+} = require("../controllers/pelatih/dashboard/dashboardController");
+const {
+  getMuridDashboard,
+} = require("../controllers/murid/dashboard/dashboardController");
 
 /**
  * @swagger
@@ -126,6 +132,7 @@ const {
  *         description: Internal Server Error
  */
 router.get("/dashboard", verifyToken, getAdminDashboard);
+
 /**
  * @swagger
  * /api/admin/dashboard/attendance-trend:
@@ -177,5 +184,124 @@ router.get("/dashboard/attendance-trend", verifyToken, getAttendanceTrend);
  *         description: Server error
  */
 router.get("/dashboard/user-growth", verifyToken, getUserGrowth);
+
+/**
+ * @swagger
+ * /api/admin/pelatih/dashboard:
+ *   get:
+ *     summary: Dashboard Pelatih – ringkasan data kelas, absensi, jadwal, dan event terkait
+ *     tags: [Pelatih - Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     total_kelas:
+ *                       type: integer
+ *                     total_murid:
+ *                       type: integer
+ *                     absensi_hari_ini:
+ *                       type: object
+ *                       properties:
+ *                         hadir:
+ *                           type: integer
+ *                         izin:
+ *                           type: integer
+ *                         sakit:
+ *                           type: integer
+ *                         alpha:
+ *                           type: integer
+ *                         total:
+ *                           type: integer
+ *                     jadwal_hari_ini:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *                           jam_mulai:
+ *                             type: string
+ *                           jam_selesai:
+ *                             type: string
+ *                           lokasi:
+ *                             type: string
+ *                           kelas_nama:
+ *                             type: string
+ *                     kejuaraan_terdekat:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         name:
+ *                           type: string
+ *                         start_date:
+ *                           type: string
+ *                           format: date
+ *                         end_date:
+ *                           type: string
+ *                           format: date
+ *                         location:
+ *                           type: string
+ *                     ujian_terdekat:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                         lokasi:
+ *                           type: string
+ *                         tanggal_mulai:
+ *                           type: string
+ *                           format: date
+ *                         tanggal_selesai:
+ *                           type: string
+ *                           format: date
+ *                     kelas_diampu:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           nama:
+ *                             type: string
+ *       500:
+ *         description: Server error
+ */
+router.get("/pelatih/dashboard", verifyToken, getPelatihDashboard);
+
+/**
+ * @swagger
+ * /api/admin/murid/dashboard:
+ *   get:
+ *     summary: Dashboard murid – ringkasan kelas, absensi, jadwal, pengumuman, prestasi, ujian
+ *     tags: [Murid - Dashboard]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Berhasil
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.get("/murid/dashboard", verifyToken, getMuridDashboard);
 
 module.exports = router;
