@@ -1,4 +1,5 @@
 // src\services\whatsapp.service.js
+require("dotenv").config();
 const { Client, LocalAuth } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
 
@@ -11,7 +12,22 @@ let client = null;
 let isReady = false;
 let isInitializing = false;
 
+function isWhatsAppFeatureEnabled() {
+  const value = process.env.WHATSAPP_ENABLED;
+  if (value === undefined || value === null || value === "") {
+    return true;
+  }
+
+  return !["false", "0", "off", "no"].includes(value.toLowerCase());
+}
+
 function createClient() {
+  if (!isWhatsAppFeatureEnabled()) {
+    currentStatus = "disabled";
+    console.log("[WA] Disabled by configuration");
+    return;
+  }
+
   console.log("[WA] Creating WhatsApp Client...");
 
   client = new Client({
@@ -88,6 +104,13 @@ function createClient() {
 }
 
 async function initializeClient() {
+  if (!isWhatsAppFeatureEnabled()) {
+    currentStatus = "disabled";
+    isReady = false;
+    isInitializing = false;
+    return;
+  }
+
   if (isInitializing) return;
 
   isInitializing = true;
@@ -110,10 +133,18 @@ async function initializeClient() {
   }
 }
 
-initializeClient();
+if (isWhatsAppFeatureEnabled()) {
+  initializeClient();
+}
 
 function isClientReady() {
-  return isReady && client && client.pupPage && !client.pupPage.isClosed();
+  return (
+    isWhatsAppFeatureEnabled() &&
+    isReady &&
+    client &&
+    client.pupPage &&
+    !client.pupPage.isClosed()
+  );
 }
 
 async function getChats() {
@@ -150,6 +181,13 @@ async function getChats() {
 }
 
 async function sendMessage(chatId, message) {
+  if (!isWhatsAppFeatureEnabled()) {
+    return {
+      success: false,
+      error: "WhatsApp feature is disabled",
+    };
+  }
+
   if (!isClientReady()) {
     return {
       success: false,
@@ -188,6 +226,7 @@ async function sendMessage(chatId, message) {
 
 function getWhatsappStatus() {
   return {
+    enabled: isWhatsAppFeatureEnabled(),
     ready: isReady,
     status: currentStatus,
     qr: currentQr,
