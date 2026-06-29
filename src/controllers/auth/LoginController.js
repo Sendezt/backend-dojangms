@@ -1,3 +1,4 @@
+// src/controllers/auth/LoginController.js
 const db = require("../../config/database");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
@@ -14,7 +15,6 @@ exports.login = async (req, res) => {
   const conn = await db.getConnection();
 
   try {
-    // Cek user
     const [[user]] = await conn.query(
       `
       SELECT id, name, email, password, status
@@ -24,16 +24,17 @@ exports.login = async (req, res) => {
       [email],
     );
 
-    // Email atau password salah (disamakan)
     if (!user) {
       return res.status(401).json({
         message: "Email atau password salah",
       });
     }
 
+    // 🔥 PERBAIKAN: kirim status sebagai tambahan
     if (user.status !== "active") {
       return res.status(403).json({
         message: "Akun tidak aktif",
+        status: user.status, // <-- tambahkan ini: 'pending', 'inactive', atau 'rejected'
       });
     }
 
@@ -44,7 +45,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // Ambil roles
     const [roles] = await conn.query(
       `
       SELECT r.name
@@ -55,7 +55,6 @@ exports.login = async (req, res) => {
       [user.id],
     );
 
-    // Ambil sabuk aktif
     const [[belt]] = await conn.query(
       `
       SELECT b.name, b.dan_level, ub.achieved_at
@@ -66,7 +65,6 @@ exports.login = async (req, res) => {
       [user.id],
     );
 
-    // Generate JWT
     const token = jwt.sign(
       {
         id: user.id,

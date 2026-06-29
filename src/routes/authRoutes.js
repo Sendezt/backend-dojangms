@@ -820,6 +820,73 @@ router.get("/user-pending/:id", verifyToken, getPendingUserDetail);
  */
 router.put("/approve/:id", verifyToken, activateUser);
 
-router.delete("/reject/:id", verifyToken, rejectUser);
+/**
+ * @swagger
+ * /api/auth/reject/{id}:
+ *   post:
+ *     summary: Tolak pendaftaran user (pending → rejected)
+ *     description: |
+ *       Mengubah status user dari `pending` menjadi `rejected`.
+ *       Hanya dapat dilakukan oleh admin.
+ *       User yang ditolak tidak bisa login dan tidak akan muncul di daftar pending lagi.
+ *     tags: [Admin - Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID user yang akan ditolak
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - alasan_reject
+ *             properties:
+ *               alasan_reject:
+ *                 type: string
+ *                 description: Alasan penolakan pendaftaran
+ *                 example: "Data KTP tidak jelas dan tidak sesuai"
+ *     responses:
+ *       200:
+ *         description: Pendaftaran berhasil ditolak
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 message:
+ *                   type: string
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                     name:
+ *                       type: string
+ *                     email:
+ *                       type: string
+ *                     status:
+ *                       type: string
+ *                       example: rejected
+ *                     alasan_reject:
+ *                       type: string
+ *                       description: Alasan penolakan yang dikirim
+ *                       example: "Data KTP tidak jelas"
+ *       400:
+ *         description: ID user tidak valid atau alasan_reject tidak diisi
+ *       404:
+ *         description: User pending tidak ditemukan
+ *       500:
+ *         description: Server error
+ */
+router.post("/reject/:id", verifyToken, rejectUser);
 
 module.exports = router;

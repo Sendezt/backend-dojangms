@@ -43,6 +43,8 @@ let clientReady = false;
 let qrCodeData = null;
 let qrTimestamp = null;
 
+const isProduction = process.env.NODE_ENV === "production";
+
 const client = new Client({
   authStrategy: new LocalAuth({
     clientId: "dojangms",
@@ -219,6 +221,38 @@ async function getChats() {
   return await client.getChats();
 }
 
+// ============================================================
+// [BARU] FUNGSI CEK NOMOR TERDAFTAR
+// ============================================================
+async function isPhoneRegistered(phone, timeout = 15000) {
+  if (!clientReady) {
+    throw new Error("WhatsApp client belum siap.");
+  }
+  // Bersihkan nomor: hanya angka, ubah 0 di depan menjadi 62 jika perlu
+  let cleanPhone = phone.replace(/\D/g, "");
+  if (cleanPhone.startsWith("0")) {
+    cleanPhone = "62" + cleanPhone.slice(1);
+  }
+  // Pastikan minimal 10 digit (contoh: 628123456789)
+  if (cleanPhone.length < 10) {
+    throw new Error("Nomor telepon tidak valid (minimal 10 digit).");
+  }
+  const numberId = `${cleanPhone}@c.us`;
+
+  try {
+    // Race dengan timeout agar tidak menggantung terlalu lama
+    const result = await Promise.race([
+      client.getNumberId(numberId),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error(`Timeout ${timeout}ms`)), timeout),
+      ),
+    ]);
+    return !!result; // true jika terdaftar
+  } catch (err) {
+    throw new Error(`Gagal mengecek nomor: ${err.message}`);
+  }
+}
+
 module.exports = {
   client,
   isClientReady,
@@ -227,4 +261,5 @@ module.exports = {
   sendDocument,
   sendMessageWithDocument,
   getChats,
+  isPhoneRegistered, // <-- ekspor fungsi baru
 };

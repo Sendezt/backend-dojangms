@@ -1,10 +1,10 @@
 // src\helpers\whatsapp.helper.js
 exports.activationMessage = (user) => {
-    return `Halo ${user.name},
+  return `Halo ${user.name},
 
 🎉 Selamat!
 
-Pendaftaran Anda sebagai calon murid DojangMS telah ** diterima ** dan akun Anda berhasil ** diaktivasi **.
+Pendaftaran Anda sebagai calon murid DojangMS telah *diterima* dan akun Anda berhasil *diaktivasi*.
 
 Anda sekarang sudah dapat login menggunakan email berikut:
 
