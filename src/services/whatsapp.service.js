@@ -49,12 +49,16 @@ const client = new Client({
   }),
   puppeteer: {
     headless: true,
+    executablePath: "/usr/bin/chromium-browser", // <-- path hasil from which
     args: [
       "--no-sandbox",
       "--disable-setuid-sandbox",
       "--disable-dev-shm-usage",
       "--disable-accelerated-2d-canvas",
       "--disable-gpu",
+      "--disable-web-security",
+      "--disable-features=IsolateOrigins",
+      "--disable-site-isolation-trials",
     ],
   },
 });
