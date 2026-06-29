@@ -14,8 +14,6 @@ exports.createPengumuman = async (req, res) => {
       user_ids,
       status = "draft",
       scheduled_at,
-      kirim_whatsapp = false,
-      whatsapp_scope, // 'grup_besar_saja' atau 'semua_grup'
     } = req.body;
 
     // ===== Validasi =====
@@ -89,33 +87,7 @@ exports.createPengumuman = async (req, res) => {
       }
     }
 
-    // Di dalam createPengumuman, setelah validasi kirim_whatsapp
-    if (kirim_whatsapp && target_type === "global") {
-      // Jika whatsapp_group_id diberikan, kirim ke satu grup
-      if (req.body.whatsapp_group_id) {
-        const groupId = parseInt(req.body.whatsapp_group_id);
-        if (isNaN(groupId) || groupId < 1) {
-          return res
-            .status(400)
-            .json({ message: "whatsapp_group_id tidak valid" });
-        }
-        const [group] = await conn.query(
-          "SELECT id FROM whatsapp_group WHERE id = ? AND status = 'aktif'",
-          [groupId],
-        );
-        if (group.length === 0) {
-          return res.status(404).json({
-            message: "Grup WhatsApp tidak ditemukan atau tidak aktif",
-          });
-        }
-        // Simpan group_id untuk digunakan di helper
-        req.body._whatsapp_group_id = groupId;
-      } else if (!whatsapp_scope) {
-        return res.status(400).json({
-          message: "whatsapp_scope wajib jika tidak mengirim ke satu grup",
-        });
-      }
-    }
+
 
     // ===== Mulai transaction =====
     await conn.beginTransaction();
@@ -123,8 +95,8 @@ exports.createPengumuman = async (req, res) => {
     // Insert pengumuman
     const [result] = await conn.query(
       `INSERT INTO pengumuman 
-   (judul, isi, target_type, target_role, kelas_id, status, scheduled_at, kirim_whatsapp, whatsapp_scope, dibuat_oleh)
-   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+   (judul, isi, target_type, target_role, kelas_id, status, scheduled_at, dibuat_oleh)
+   VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         judul.trim(),
         isi.trim(),
@@ -133,8 +105,6 @@ exports.createPengumuman = async (req, res) => {
         kelas_id || null,
         status,
         scheduled_at || null,
-        kirim_whatsapp ? 1 : 0,
-        whatsapp_scope || null,
         req.user.id,
       ],
     );
@@ -191,9 +161,7 @@ exports.createPengumuman = async (req, res) => {
         target_type,
         target_role,
         kelas_id,
-        kirim_whatsapp,
-        whatsapp_scope: req.body._whatsapp_group_id ? null : whatsapp_scope,
-        whatsapp_group_id: req.body._whatsapp_group_id || null,
+        kirim_whatsapp: false,
       });
       await conn.commit();
       return res.status(201).json({

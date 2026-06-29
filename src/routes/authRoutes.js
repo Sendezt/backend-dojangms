@@ -13,6 +13,11 @@ const {
   getProfile,
   updateProfile,
 } = require("../controllers/auth/profileController");
+const { getPendingUsers } = require("../controllers/auth/pendingController");
+const {
+  getPendingUserDetail,
+} = require("../controllers/auth/getPendingUserDetailController");
+const { activateUser } = require("../controllers/auth/activateController");
 
 /**
  * @swagger
@@ -475,5 +480,343 @@ router.get("/profile", verifyToken, getProfile);
  *         description: Server error
  */
 router.put("/profile", verifyToken, upload.single("foto"), updateProfile);
+
+/**
+ * @swagger
+ * /api/auth/user-pending:
+ *   get:
+ *     summary: Daftar user pending (murid dengan status inactive) yang menunggu aktivasi admin
+ *     description: |
+ *       Menampilkan semua user dengan role `murid` dan status `inactive` yang belum diaktivasi oleh admin.
+ *       Mendukung pagination dan pencarian berdasarkan nama, email, atau telepon.
+ *
+ *       **Akses:** Hanya admin yang dapat mengakses endpoint ini.
+ *     tags: [Admin - Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *         description: Halaman yang diminta
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           enum: [10, 25, 50, 75, 100, 200]
+ *           default: 10
+ *         description: Jumlah data per halaman
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Cari berdasarkan nama, email, atau nomor telepon
+ *         example: "Budi"
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil daftar pending users
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Berhasil mengambil daftar pending"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                         example: 5
+ *                       name:
+ *                         type: string
+ *                         example: "Budi Santoso"
+ *                       email:
+ *                         type: string
+ *                         example: "budi@example.com"
+ *                       phone:
+ *                         type: string
+ *                         example: "081234567890"
+ *                       tanggal_lahir:
+ *                         type: string
+ *                         format: date
+ *                         example: "2010-05-10"
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                         example: "2026-06-29 10:30:00"
+ *                 pagination:
+ *                   type: object
+ *                   properties:
+ *                     current_page:
+ *                       type: integer
+ *                       example: 1
+ *                     per_page:
+ *                       type: integer
+ *                       example: 10
+ *                     total_page:
+ *                       type: integer
+ *                       example: 3
+ *                     total_data:
+ *                       type: integer
+ *                       example: 25
+ *                     has_next:
+ *                       type: boolean
+ *                       example: true
+ *                     has_prev:
+ *                       type: boolean
+ *                       example: false
+ *             example:
+ *               success: true
+ *               message: "Berhasil mengambil daftar pending"
+ *               data:
+ *                 - id: 5
+ *                   name: "Budi Santoso"
+ *                   email: "budi@example.com"
+ *                   phone: "081234567890"
+ *                   tanggal_lahir: "2010-05-10"
+ *                   created_at: "2026-06-29 10:30:00"
+ *                 - id: 7
+ *                   name: "Siti Aminah"
+ *                   email: "siti@example.com"
+ *                   phone: "081234567891"
+ *                   tanggal_lahir: "2011-08-15"
+ *                   created_at: "2026-06-29 11:00:00"
+ *               pagination:
+ *                 current_page: 1
+ *                 per_page: 10
+ *                 total_page: 1
+ *                 total_data: 2
+ *                 has_next: false
+ *                 has_prev: false
+ *       401:
+ *         description: Unauthorized (token tidak valid atau tidak ditemukan)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Unauthorized"
+ *       403:
+ *         description: Forbidden (user bukan admin)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Akses ditolak"
+ *       500:
+ *         description: Server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *             example:
+ *               success: false
+ *               message: "Gagal mengambil pending users"
+ *               error: "Database connection error"
+ */
+router.get("/user-pending", verifyToken, getPendingUsers);
+
+/**
+ * @swagger
+ * /api/auth/user-pending/{id}:
+ *   get:
+ *     summary: Detail user pending berdasarkan ID
+ *     description: |
+ *       Menampilkan detail lengkap dari user dengan role `murid` dan status `pending`.
+ *       Data yang ditampilkan mencakup informasi pribadi, alamat, wali, dan sabuk saat ini (jika ada).
+ *
+ *       **Akses:** Hanya admin.
+ *     tags: [Admin - Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID user pending
+ *         example: 5
+ *     responses:
+ *       200:
+ *         description: Berhasil mengambil detail user pending
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Detail user pending berhasil diambil"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 5
+ *                     name:
+ *                       type: string
+ *                       example: "Budi Santoso"
+ *                     email:
+ *                       type: string
+ *                       example: "budi@example.com"
+ *                     phone:
+ *                       type: string
+ *                       example: "081234567890"
+ *                     alamat:
+ *                       type: string
+ *                       example: "Jl. Merdeka No. 10, Salatiga"
+ *                     jenis_kelamin:
+ *                       type: string
+ *                       enum: [laki-laki, perempuan]
+ *                       example: "laki-laki"
+ *                     nama_wali:
+ *                       type: string
+ *                       example: "Siti Aminah"
+ *                     no_wali:
+ *                       type: string
+ *                       example: "081234567891"
+ *                     tanggal_lahir:
+ *                       type: string
+ *                       format: date
+ *                       example: "2010-05-10"
+ *                     tahun_lahir:
+ *                       type: integer
+ *                       example: 2010
+ *                     status:
+ *                       type: string
+ *                       example: "pending"
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2026-06-29 10:30:00"
+ *                     updated_at:
+ *                       type: string
+ *                       format: date-time
+ *                       example: "2026-06-29 10:30:00"
+ *                     sabuk_saat_ini:
+ *                       type: object
+ *                       nullable: true
+ *                       properties:
+ *                         id:
+ *                           type: integer
+ *                           example: 1
+ *                         name:
+ *                           type: string
+ *                           example: "Putih"
+ *       400:
+ *         description: ID user tidak valid (bukan angka atau < 1)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: User pending tidak ditemukan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden (bukan admin)
+ *       500:
+ *         description: Server error
+ */
+router.get("/user-pending/:id", verifyToken, getPendingUserDetail);
+
+/**
+ * @swagger
+ * /api/auth/approve/{id}:
+ *   put:
+ *     summary: Aktivasi akun user (pending → active) dan kirim WhatsApp
+ *     description: |
+ *       Endpoint ini digunakan oleh admin untuk mengaktivasi user yang baru mendaftar (status inactive).
+ *       Setelah aktivasi, status user berubah menjadi active dan sistem akan mengirim pesan WhatsApp
+ *       ke nomor telepon user sebagai notifikasi.
+ *
+ *       **Catatan:**
+ *       - Hanya user dengan role `murid` dan status `inactive` yang bisa diaktivasi.
+ *       - WhatsApp akan dikirim secara otomatis jika nomor telepon terisi.
+ *       - Jika nomor telepon null, kirim WhatsApp akan dilewati (tapi user tetap aktif).
+ *     tags: [Admin - Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID user yang akan diaktivasi
+ *         example: 5
+ *     responses:
+ *       200:
+ *         description: User berhasil diaktifkan
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "User berhasil diaktifkan dan WhatsApp telah dikirim"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 5
+ *                     name:
+ *                       type: string
+ *                       example: "Budi Santoso"
+ *                     email:
+ *                       type: string
+ *                       example: "budi@example.com"
+ *                     phone:
+ *                       type: string
+ *                       example: "081234567890"
+ *                     status:
+ *                       type: string
+ *                       example: "active"
+ *       400:
+ *         description: ID user tidak valid (bukan angka atau < 1)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       404:
+ *         description: User pending tidak ditemukan (tidak ada user dengan role murid dan status inactive)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Server error (misal koneksi database, WhatsApp gagal, dsb)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+router.put("/approve/:id", verifyToken, activateUser);
 
 module.exports = router;

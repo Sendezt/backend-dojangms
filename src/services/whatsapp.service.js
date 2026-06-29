@@ -1,245 +1,230 @@
-// src\services\whatsapp.service.js
-require("dotenv").config();
-const { Client, LocalAuth } = require("whatsapp-web.js");
+// src/services/whatsapp.service.js
+const { Client, LocalAuth, MessageMedia } = require("whatsapp-web.js");
 const qrcode = require("qrcode-terminal");
-
 const QRCode = require("qrcode");
+const fs = require("fs");
+const path = require("path");
 
-let currentQr = null;
-let currentStatus = "initializing";
+// ============================================================
+// KONFIGURASI SESSION
+// ============================================================
+const SESSION_DIR = path.join(__dirname, "../../.wwebjs_auth/session-dojangms");
 
-let client = null;
-let isReady = false;
-let isInitializing = false;
-
-function isWhatsAppFeatureEnabled() {
-  const value = process.env.WHATSAPP_ENABLED;
-  if (value === undefined || value === null || value === "") {
-    return true;
+// ============================================================
+// FUNGSI DELETE SESSION (untuk mengatasi EBUSY / lockfile)
+// ============================================================
+function deleteSessionFolder() {
+  try {
+    if (fs.existsSync(SESSION_DIR)) {
+      fs.rmSync(SESSION_DIR, { recursive: true, force: true });
+      console.log("🗑️ Session folder deleted successfully.");
+    }
+  } catch (err) {
+    console.error("❌ Failed to delete session folder:", err.message);
   }
-
-  return !["false", "0", "off", "no"].includes(value.toLowerCase());
 }
 
-function createClient() {
-  if (!isWhatsAppFeatureEnabled()) {
-    currentStatus = "disabled";
-    console.log("[WA] Disabled by configuration");
-    return;
+// ============================================================
+// GENERATE QR BASE64
+// ============================================================
+async function generateQRBase64(qrData) {
+  try {
+    return await QRCode.toDataURL(qrData);
+  } catch (err) {
+    console.error("Gagal generate QR base64:", err);
+    return null;
   }
+}
 
-  console.log("[WA] Creating WhatsApp Client...");
+// ============================================================
+// INISIALISASI CLIENT
+// ============================================================
+let clientReady = false;
+let qrCodeData = null;
+let qrTimestamp = null;
 
-  client = new Client({
-    authStrategy: new LocalAuth(),
-    puppeteer: {
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--disable-extensions",
-        "--disable-background-networking",
-        "--no-first-run",
-        "--no-default-browser-check",
-      ],
-    },
-  });
+const client = new Client({
+  authStrategy: new LocalAuth({
+    clientId: "dojangms",
+  }),
+  puppeteer: {
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-accelerated-2d-canvas",
+      "--disable-gpu",
+    ],
+  },
+});
 
-  client.on("qr", async (qr) => {
-    console.log("[WA] QR Received");
+// ============================================================
+// EVENT HANDLER
+// ============================================================
 
-    currentStatus = "qr";
+// QR Code
+client.on("qr", async (qr) => {
+  qrCodeData = qr;
+  qrTimestamp = new Date().toISOString();
+  console.log("📱 QR Code generated at:", qrTimestamp);
+  console.log("Scan QR Code berikut:");
+  qrcode.generate(qr, { small: true });
+});
 
-    currentQr = await QRCode.toDataURL(qr);
-  });
+// Authenticated
+client.on("authenticated", () => {
+  console.log("✅ WhatsApp authenticated!");
+  qrCodeData = null;
+  qrTimestamp = null;
+});
 
-  client.on("authenticated", () => {
-    console.log("[WA] Authenticated");
+// Ready
+client.on("ready", () => {
+  clientReady = true;
+  console.log("🚀 WhatsApp Client is ready!");
+});
 
-    currentStatus = "authenticated";
-  });
+// Disconnected (KRITIS: tangani logout)
+client.on("disconnected", async (reason) => {
+  clientReady = false;
+  console.log("⚠️ WhatsApp disconnected:", reason);
 
-  client.on("ready", () => {
-    console.log("[WA] Ready");
-    isReady = true;
-    isInitializing = false;
-    currentStatus = "ready";
-    currentQr = null;
-  });
+  if (reason === "LOGOUT") {
+    console.log("🔄 Logout detected. Deleting session and restarting...");
+    deleteSessionFolder();
 
-  client.on("loading_screen", (percent, message) => {
-    console.log(`[WA] Loading ${percent}% - ${message}`);
-  });
+    // Exit process agar PM2 restart
+    setTimeout(() => {
+      console.log("💀 Exiting process to trigger PM2 restart...");
+      process.exit(1);
+    }, 2000);
+  } else {
+    // Untuk disconnect lain (misal network error), coba restart client tanpa hapus session
+    console.log("🔄 Attempting to restart client...");
+    try {
+      await client.initialize();
+    } catch (err) {
+      console.error("❌ Failed to restart client:", err.message);
+    }
+  }
+});
 
-  client.on("change_state", (state) => {
-    console.log("[WA] State:", state);
-  });
+// Auth Failure
+client.on("auth_failure", (msg) => {
+  clientReady = false;
+  console.error("❌ Auth failed:", msg);
+  // Jika auth gagal, hapus session dan restart
+  deleteSessionFolder();
+  setTimeout(() => {
+    console.log("🔄 Restarting client after auth failure...");
+    process.exit(1);
+  }, 2000);
+});
 
-  client.on("disconnected", async (reason) => {
-    currentStatus = "disconnected";
-    currentQr = null;
-    console.error("[WA] Disconnected:", reason);
+// ============================================================
+// MULAI CLIENT (dengan try-catch + retry)
+// ============================================================
+function startClient() {
+  try {
+    client.initialize();
+  } catch (err) {
+    console.error("❌ Failed to initialize WhatsApp client:", err.message);
+    if (err.message.includes("EBUSY") || err.message.includes("lockfile")) {
+      console.log("🔓 Lock file detected. Deleting session and retrying...");
+      deleteSessionFolder();
+      setTimeout(() => {
+        console.log("🔄 Retrying client initialization...");
+        client.initialize();
+      }, 3000);
+    }
+  }
+}
 
-    isReady = false;
+startClient();
 
+// ============================================================
+// CLEANUP ON EXIT
+// ============================================================
+process.on("exit", () => {
+  if (client && client.pupBrowser) {
+    client.pupBrowser.close().catch(() => {});
+  }
+});
+
+process.on("SIGINT", async () => {
+  console.log("🛑 Received SIGINT. Closing client...");
+  if (client) {
     try {
       await client.destroy();
-    } catch (err) {
-      console.error("[WA] Destroy Error:", err.message);
+    } catch (e) {
+      // ignore
     }
-
-    setTimeout(() => {
-      console.log("[WA] Reconnecting...");
-      initializeClient();
-    }, 5000);
-  });
-
-  client.on("auth_failure", (msg) => {
-    console.error("[WA] Auth Failure:", msg);
-    currentStatus = "auth_failure";
-    isReady = false;
-  });
-}
-
-async function initializeClient() {
-  if (!isWhatsAppFeatureEnabled()) {
-    currentStatus = "disabled";
-    isReady = false;
-    isInitializing = false;
-    return;
   }
+  process.exit(0);
+});
 
-  if (isInitializing) return;
-
-  isInitializing = true;
-
-  if (!client) {
-    createClient();
-  }
-
-  try {
-    await client.initialize();
-  } catch (err) {
-    console.error("[WA] Initialize Failed:", err.message);
-
-    isReady = false;
-    isInitializing = false;
-
-    setTimeout(() => {
-      initializeClient();
-    }, 5000);
-  }
-}
-
-if (isWhatsAppFeatureEnabled()) {
-  initializeClient();
-}
+// ============================================================
+// EKSPOR FUNGSI
+// ============================================================
 
 function isClientReady() {
-  return (
-    isWhatsAppFeatureEnabled() &&
-    isReady &&
-    client &&
-    client.pupPage &&
-    !client.pupPage.isClosed()
-  );
+  return clientReady;
 }
 
-async function getChats() {
-  if (!isClientReady()) {
-    throw new Error("WhatsApp client not ready");
-  }
-
-  try {
-    return await client.getChats();
-  } catch (err) {
-    if (
-      err.message.includes("detached Frame") ||
-      err.message.includes("Execution context was destroyed")
-    ) {
-      console.warn("[WA] Browser context invalid, reconnecting...");
-
-      isReady = false;
-
-      try {
-        await client.destroy();
-      } catch {}
-
-      client = null;
-
-      initializeClient();
-
-      throw new Error(
-        "WhatsApp sedang reconnect, silakan coba beberapa detik lagi.",
-      );
-    }
-
-    throw err;
-  }
-}
-
-async function sendMessage(chatId, message) {
-  if (!isWhatsAppFeatureEnabled()) {
+async function getWhatsappStatus() {
+  if (clientReady) {
     return {
-      success: false,
-      error: "WhatsApp feature is disabled",
+      connected: true,
+      qrCode: null,
+      message: "WhatsApp terhubung",
     };
   }
-
-  if (!isClientReady()) {
+  if (qrCodeData) {
+    const base64 = await generateQRBase64(qrCodeData);
     return {
-      success: false,
-      error: "WhatsApp client not ready",
+      connected: false,
+      qrCode: base64,
+      timestamp: qrTimestamp,
+      message: "Silakan scan QR Code",
     };
   }
-
-  try {
-    await client.sendMessage(chatId, message);
-
-    return {
-      success: true,
-    };
-  } catch (err) {
-    if (
-      err.message.includes("detached Frame") ||
-      err.message.includes("Execution context was destroyed")
-    ) {
-      isReady = false;
-
-      try {
-        await client.destroy();
-      } catch {}
-
-      client = null;
-
-      initializeClient();
-    }
-
-    return {
-      success: false,
-      error: err.message,
-    };
-  }
-}
-
-function getWhatsappStatus() {
   return {
-    enabled: isWhatsAppFeatureEnabled(),
-    ready: isReady,
-    status: currentStatus,
-    qr: currentQr,
+    connected: false,
+    qrCode: null,
+    message: "Menunggu QR Code...",
   };
 }
 
+async function sendMessage(phone, message) {
+  if (!clientReady) throw new Error("WhatsApp client belum siap.");
+  const chatId = `${phone}@c.us`;
+  return client.sendMessage(chatId, message);
+}
+
+async function sendDocument(phone, filePath, caption = "") {
+  if (!clientReady) throw new Error("WhatsApp client belum siap.");
+  const chatId = `${phone}@c.us`;
+  const media = MessageMedia.fromFilePath(filePath);
+  return client.sendMessage(chatId, media, { caption });
+}
+
+async function sendMessageWithDocument(phone, message, filePath) {
+  await sendMessage(phone, message);
+  return sendDocument(phone, filePath);
+}
+
+async function getChats() {
+  if (!clientReady) throw new Error("WhatsApp client belum siap.");
+  return await client.getChats();
+}
+
 module.exports = {
-  get client() {
-    return client;
-  },
-  initializeClient,
-  getChats,
-  sendMessage,
+  client,
   isClientReady,
   getWhatsappStatus,
+  sendMessage,
+  sendDocument,
+  sendMessageWithDocument,
+  getChats,
 };
