@@ -35,8 +35,6 @@ exports.updatePengumuman = async (req, res) => {
       user_ids,
       status,
       scheduled_at,
-      kirim_whatsapp,
-      whatsapp_scope,
     } = req.body;
 
     // Validasi minimal ada field yang diupdate
@@ -125,20 +123,7 @@ exports.updatePengumuman = async (req, res) => {
       values.push(kelas_id || null);
     }
 
-    // Kirim WhatsApp
-    if (kirim_whatsapp !== undefined) {
-      updateFields.push("kirim_whatsapp = ?");
-      values.push(kirim_whatsapp ? 1 : 0);
-    }
 
-    // WhatsApp scope
-    if (whatsapp_scope !== undefined) {
-      if (!["grup_besar_saja", "semua_grup"].includes(whatsapp_scope)) {
-        return res.status(400).json({ message: "whatsapp_scope tidak valid" });
-      }
-      updateFields.push("whatsapp_scope = ?");
-      values.push(whatsapp_scope || null);
-    }
 
     // Status & scheduled_at
     let finalStatus = current.status;

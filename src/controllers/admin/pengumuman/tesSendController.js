@@ -1,18 +1,40 @@
-const { client } = require("../../../services/whatsapp.service");
+// src/controllers/whatsapp/TestWhatsappController.js
+
+const {
+  isClientReady,
+  sendMessage,
+} = require("../../../services/whatsapp.service");
 
 exports.sendTest = async (req, res) => {
   try {
-    const { groupId, message } = req.body;
+    const { phone, message } = req.body;
 
-    await client.sendMessage(groupId, message);
+    if (!phone || !message) {
+      return res.status(400).json({
+        success: false,
+        message: "Nomor WhatsApp dan pesan wajib diisi.",
+      });
+    }
 
-    return res.json({
+    if (!isClientReady()) {
+      return res.status(503).json({
+        success: false,
+        message: "WhatsApp belum terhubung.",
+      });
+    }
+
+    await sendMessage(phone, message);
+
+    return res.status(200).json({
       success: true,
-      message: "Pesan berhasil dikirim",
+      message: "Pesan WhatsApp berhasil dikirim.",
     });
   } catch (error) {
+    console.error(error);
+
     return res.status(500).json({
       success: false,
+      message: "Gagal mengirim WhatsApp.",
       error: error.message,
     });
   }
