@@ -1,6 +1,10 @@
 // src/controllers/auth/activateController.js
 const db = require("../../config/database");
-const { sendMessageWithDocument } = require("../../services/whatsapp.service");
+const {
+  sendMessageWithDocument,
+  isClientReady,
+  isPhoneRegistered, // <-- import fungsi baru
+} = require("../../services/whatsapp.service");
 const { activationMessage } = require("../../helpers/whatsapp.helper");
 const { generateRegistrationPDF } = require("../../services/pdf.service");
 
@@ -13,7 +17,7 @@ exports.activateUser = async (req, res) => {
         .json({ success: false, message: "ID user tidak valid" });
     }
 
-    // Ambil data user LENGKAP (termasuk alamat, jenis_kelamin, dll)
+    // Ambil data user LENGKAP
     const [users] = await db.query(
       `SELECT u.id, u.name, u.email, u.phone, u.status, u.tanggal_lahir, u.alamat, u.jenis_kelamin, u.nama_wali, u.no_wali, r.name AS role
        FROM users u
@@ -29,23 +33,68 @@ exports.activateUser = async (req, res) => {
     }
     const user = users[0];
 
+    // ============================================================
+    // 1. VALIDASI NOMOR TELEPON
+    // ============================================================
+    if (!user.phone) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Nomor telepon tidak tersedia, tidak dapat melanjutkan aktivasi",
+      });
+    }
+
+    // Format nomor: bersihkan dan ubah 0 di depan menjadi 62
+    let phoneNumber = user.phone.replace(/\D/g, "");
+    if (phoneNumber.startsWith("0")) {
+      phoneNumber = "62" + phoneNumber.slice(1);
+    }
+
+    // ============================================================
+    // 2. CEK KONEKSI WHATSAPP CLIENT
+    // ============================================================
+    if (!isClientReady()) {
+      return res.status(503).json({
+        success: false,
+        message: "WhatsApp client tidak siap, coba lagi nanti.",
+      });
+    }
+
+    // ============================================================
+    // 3. CEK APAKAH NOMOR TERDAFTAR DI WHATSAPP
+    // ============================================================
+    let isRegistered = false;
+    try {
+      isRegistered = await isPhoneRegistered(phoneNumber, 15000); // timeout 15 detik
+    } catch (checkErr) {
+      return res.status(500).json({
+        success: false,
+        message: `Gagal memverifikasi nomor WhatsApp: ${checkErr.message}`,
+      });
+    }
+
+    if (!isRegistered) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Nomor WhatsApp tidak terdaftar. Aktivasi dibatalkan. Pastikan nomor sudah terdaftar di WhatsApp.",
+      });
+    }
+
+    // ============================================================
+    // 4. LANJUTKAN AKTIVASI
+    // ============================================================
     // Ubah status menjadi active
     await db.query("UPDATE users SET status = 'active' WHERE id = ?", [userId]);
 
-    // 1. Buat pesan WhatsApp dari helper
+    // 5. Buat pesan dan generate PDF
     const message = activationMessage(user);
-
-    // 2. Generate PDF formulir
     const pdfPath = await generateRegistrationPDF(user);
 
-    // 3. Kirim pesan + PDF via WhatsApp
-    let phoneNumber = user.phone;
-    if (phoneNumber.startsWith("0")) {
-      phoneNumber = `62${phoneNumber.slice(1)}`; // format internasional
-    }
+    // 6. Kirim pesan + PDF via WhatsApp
     await sendMessageWithDocument(phoneNumber, message, pdfPath);
 
-    // Ambil data terbaru
+    // 7. Ambil data terbaru
     const [updated] = await db.query(
       `SELECT id, name, email, phone, status FROM users WHERE id = ?`,
       [userId],

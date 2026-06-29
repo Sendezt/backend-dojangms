@@ -1,3 +1,4 @@
+// src\controllers\auth\rejectController.js
 const db = require("../../config/database");
 
 exports.rejectUser = async (req, res) => {
@@ -9,7 +10,16 @@ exports.rejectUser = async (req, res) => {
         .json({ success: false, message: "ID user tidak valid" });
     }
 
-    // Cek user pending
+    // Ambil alasan penolakan dari body request
+    const { alasan_reject } = req.body;
+    if (!alasan_reject || alasan_reject.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Alasan penolakan harus diisi",
+      });
+    }
+
+    // Cek user pending (hanya untuk role murid)
     const [users] = await db.query(
       `SELECT u.id, u.name, u.email, u.phone, u.status, r.name AS role
        FROM users u
@@ -18,17 +28,20 @@ exports.rejectUser = async (req, res) => {
        WHERE u.id = ? AND r.name = 'murid' AND u.status = 'pending'`,
       [userId],
     );
+
     if (users.length === 0) {
       return res
         .status(404)
         .json({ success: false, message: "User pending tidak ditemukan" });
     }
+
     const user = users[0];
 
-    // Ubah status menjadi rejected
-    await db.query("UPDATE users SET status = 'rejected' WHERE id = ?", [
-      userId,
-    ]);
+    // Ubah status menjadi rejected dan simpan alasan
+    await db.query(
+      "UPDATE users SET status = 'rejected', alasan_reject = ? WHERE id = ?",
+      [alasan_reject.trim(), userId],
+    );
 
     return res.status(200).json({
       success: true,
@@ -38,6 +51,7 @@ exports.rejectUser = async (req, res) => {
         name: user.name,
         email: user.email,
         status: "rejected",
+        alasan_reject: alasan_reject.trim(), // tambahkan alasan di response
       },
     });
   } catch (error) {
