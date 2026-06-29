@@ -18,6 +18,7 @@ const {
   getPendingUserDetail,
 } = require("../controllers/auth/getPendingUserDetailController");
 const { activateUser } = require("../controllers/auth/activateController");
+const { rejectUser } = require("../controllers/auth/rejectController");
 
 /**
  * @swagger
@@ -818,5 +819,7 @@ router.get("/user-pending/:id", verifyToken, getPendingUserDetail);
  *               $ref: '#/components/schemas/ErrorResponse'
  */
 router.put("/approve/:id", verifyToken, activateUser);
+
+router.delete("/reject/:id", verifyToken, rejectUser);
 
 module.exports = router;
