@@ -30,7 +30,6 @@ exports.login = async (req, res) => {
       });
     }
 
-    // 🔥 PERBAIKAN: kirim status sebagai tambahan
     if (user.status !== "active") {
       return res.status(403).json({
         message: "Akun tidak aktif",
