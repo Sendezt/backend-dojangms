@@ -3,7 +3,7 @@ const db = require("../../config/database");
 const {
   sendMessageWithDocument,
   isClientReady,
-  isPhoneRegistered, // <-- import fungsi baru
+  isPhoneRegistered,
 } = require("../../services/whatsapp.service");
 const { activationMessage } = require("../../helpers/whatsapp.helper");
 const { generateRegistrationPDF } = require("../../services/pdf.service");
@@ -67,7 +67,13 @@ exports.activateUser = async (req, res) => {
     try {
       isRegistered = await isPhoneRegistered(phoneNumber, 15000); // timeout 15 detik
     } catch (checkErr) {
-      return res.status(500).json({
+      const statusCode =
+        checkErr.code === "WA_CLIENT_UNSTABLE" ||
+        checkErr.code === "WA_CLIENT_NOT_READY"
+          ? 503
+          : 500;
+
+      return res.status(statusCode).json({
         success: false,
         message: `Gagal memverifikasi nomor WhatsApp: ${checkErr.message}`,
       });
@@ -81,18 +87,15 @@ exports.activateUser = async (req, res) => {
       });
     }
 
-    // ============================================================
-    // 4. LANJUTKAN AKTIVASI
-    // ============================================================
-    // Ubah status menjadi active
-    await db.query("UPDATE users SET status = 'active' WHERE id = ?", [userId]);
-
-    // 5. Buat pesan dan generate PDF
+    // 4. Buat pesan dan generate PDF
     const message = activationMessage(user);
     const pdfPath = await generateRegistrationPDF(user);
 
-    // 6. Kirim pesan + PDF via WhatsApp
+    // 5. Kirim pesan + PDF via WhatsApp
     await sendMessageWithDocument(phoneNumber, message, pdfPath);
+
+    // 6. Jika WhatsApp berhasil terkirim, baru aktifkan user
+    await db.query("UPDATE users SET status = 'active' WHERE id = ?", [userId]);
 
     // 7. Ambil data terbaru
     const [updated] = await db.query(
